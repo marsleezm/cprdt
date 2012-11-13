@@ -1,10 +1,9 @@
-package sys.stats;
+package sys.stats.common;
 
 import java.util.LinkedList;
 import java.util.List;
 
 import swift.utils.Pair;
-import sys.stats.common.BinnedTally;
 import umontreal.iro.lecuyer.stat.Tally;
 
 public abstract class AbstractTallyStatistics {
