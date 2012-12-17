@@ -14,11 +14,37 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *****************************************************************************/
-package sys.stats.sources;
+package sys.stats.sliced.slices;
 
-public interface CounterSignalSource {
-    void incCounter();
+import sys.stats.sliced.SlicedStatistics;
+import umontreal.iro.lecuyer.stat.Tally;
 
-    void decCounter();
+public class TallyValueImpl implements SlicedStatistics<TallyValueImpl> {
+
+    private Tally value;
+
+    public TallyValueImpl() {
+        value = new Tally();
+    }
+
+    public void addValue(double value) {
+        this.value.add(value);
+    }
+
+    public int getTotalOperations() {
+        return this.value.numberObs();
+    }
+
+    public double getSumValue() {
+        return this.value.sum();
+    }
+
+    public double getAvgValue() {
+        return this.value.average();
+    }
+
+    public TallyValueImpl createNew() {
+        return new TallyValueImpl();
+    }
 
 }
