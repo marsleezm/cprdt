@@ -7,7 +7,7 @@ package loria.swift.application.filesystem;
 import swift.crdt.interfaces.TxnHandle;
 
 /**
- *
+ * 
  * @author urso
  * @author Stephane Martin <stephane.martin@loria.fr>
  */
@@ -26,8 +26,10 @@ public abstract class FileSystemObject {
     }
 
     /**
-     * @param txn the value of txn
-     * @param pwd the value of pwd
+     * @param txn
+     *            the value of txn
+     * @param pwd
+     *            the value of pwd
      */
     public FileSystemObject(TxnHandle txn, String pwd) {
         this.pwd = pwd;
@@ -89,6 +91,7 @@ public abstract class FileSystemObject {
         }
         return true;
     }
-        public abstract void uptodate(TxnHandle txn);
-    //public abstract boolean isExisting();
+
+    public abstract void uptodate(TxnHandle txn);
+    // public abstract boolean isExisting();
 }

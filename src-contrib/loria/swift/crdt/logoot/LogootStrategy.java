@@ -22,21 +22,25 @@ import java.io.Serializable;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
+
 import swift.clocks.TripleTimestamp;
 
 /**
  * Helper for logoot identifier construction.
+ * 
  * @author urso
  */
 public abstract class LogootStrategy implements Serializable {
     /**
      * Generate N identifier between P and Q;
      */
-    abstract ArrayList<LogootIdentifier> generateLineIdentifiers(LogootDocument replica, LogootIdentifier P, LogootIdentifier Q, int N);
+    abstract ArrayList<LogootIdentifier> generateLineIdentifiers(LogootDocument replica, LogootIdentifier P,
+            LogootIdentifier Q, int N);
 
-    static LogootIdentifier constructIdentifier(List<Long> digits, LogootIdentifier P, LogootIdentifier Q, TripleTimestamp nextTimestamp) {
+    static LogootIdentifier constructIdentifier(List<Long> digits, LogootIdentifier P, LogootIdentifier Q,
+            TripleTimestamp nextTimestamp) {
         LogootIdentifier R = new LogootIdentifier(digits.size());
-        int i = 0, index = digits.size() - 1; 
+        int i = 0, index = digits.size() - 1;
         while (i < index && i < P.length() && digits.get(i) == P.getDigitAt(i)) {
             R.addComponent(P.getComponentAt(i).clone());
             i++;
@@ -62,7 +66,7 @@ public abstract class LogootStrategy implements Serializable {
         }
         return bi;
     }
-    
+
     static List<Long> plus(List<Long> lid, long sep, BigInteger base, long max) {
         int index = lid.size() - 1;
         long last = lid.get(index);
@@ -72,10 +76,10 @@ public abstract class LogootStrategy implements Serializable {
             while (dr[0].longValue() != 0) {
                 --index;
                 dr = BigInteger.valueOf(lid.get(index)).add(dr[0]).divideAndRemainder(base);
-                lid.set(index, dr[1].longValue());            
+                lid.set(index, dr[1].longValue());
             }
         } else {
-            lid.set(index, last + sep); 
+            lid.set(index, last + sep);
         }
         return lid;
     }

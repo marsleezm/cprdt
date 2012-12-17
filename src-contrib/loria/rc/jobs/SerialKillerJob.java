@@ -20,13 +20,12 @@
 package loria.rc.jobs;
 
 import java.io.IOException;
-import java.net.Socket;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
  * this jobs shuts down the machine
- *
+ * 
  * @author Stephane Martin <stephane.martin@loria.fr>
  */
 public class SerialKillerJob extends Jobs {

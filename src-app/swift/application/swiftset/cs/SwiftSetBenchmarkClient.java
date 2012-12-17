@@ -42,24 +42,24 @@ public class SwiftSetBenchmarkClient {
             System.out.println("Usage: [scout address] [client id (1|2)] [DC address]");
             return;
         } else {
-            
+
             scoutName = args[0];
             clientId = Integer.parseInt(args[1]);
             dcName = args[2];
             logger.info("Initializing the system");
 
             Sys.init();
-            DCSequencerServer.main(new String[]{"-name", "localhost"});
+            DCSequencerServer.main(new String[] { "-name", "localhost" });
 
             // start DC server
-            DCServer.main(new String[]{"localhost"});
+            DCServer.main(new String[] { "localhost" });
 
             if (clientId == 1) {
                 logger.info("Starting client 1");
-                SwiftSetClient2.runClient1Code( scoutName, dcName );
+                SwiftSetClient2.runClient1Code(scoutName, dcName);
             } else if (clientId == 2) {
                 logger.info("Starting client 2");
-                SwiftSetClient2.runClient2Code( scoutName );
+                SwiftSetClient2.runClient2Code(scoutName);
             }
         }
     }

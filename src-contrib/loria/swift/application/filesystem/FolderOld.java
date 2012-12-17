@@ -9,6 +9,7 @@ import swift.crdt.interfaces.Copyable;
 
 /**
  * FolderOld to be stored. Contains name and id of its content.
+ * 
  * @author urso
  */
 public class FolderOld implements Copyable {
@@ -18,20 +19,19 @@ public class FolderOld implements Copyable {
     public FolderOld(String name, CRDTIdentifier setId) {
         this.name = name;
         this.setId = setId;
-    }    
-    
-    
+    }
+
     @Override
     public Object copy() {
         return new FolderOld(name, setId);
     }
 
-    //@Override
+    // @Override
     public String getName() {
         return name;
     }
 
-    //@Override
+    // @Override
     public String getType() {
         return "folder";
     }

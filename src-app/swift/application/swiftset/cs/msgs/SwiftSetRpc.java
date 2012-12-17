@@ -20,10 +20,10 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import sys.net.api.rpc.RpcMessage;
 
-public abstract class SwiftSetRpc implements RpcMessage{
+public abstract class SwiftSetRpc implements RpcMessage {
 
     static AtomicLong serialFactory = new AtomicLong(0);
-    
-    public long serial = serialFactory.getAndIncrement() ;
-                
+
+    public long serial = serialFactory.getAndIncrement();
+
 }

@@ -20,14 +20,13 @@
 package loria.rc;
 
 import org.junit.Test;
-import static org.junit.Assert.*;
 
 /**
- *
+ * 
  * @author Stephane Martin <stephane.martin@loria.fr>
  */
 public class RemoteControlTest {
-    
+
     public RemoteControlTest() {
     }
 

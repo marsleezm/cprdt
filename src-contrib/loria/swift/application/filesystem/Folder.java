@@ -20,41 +20,44 @@
 package loria.swift.application.filesystem;
 
 import java.util.List;
+
 import swift.crdt.interfaces.TxnHandle;
 
 /**
- *
+ * 
  * @author Stephane Martin <stephane.martin@loria.fr>
  */
-public abstract class Folder extends FileSystemObject{
+public abstract class Folder extends FileSystemObject {
 
     public Folder(TxnHandle txn, String pwd) {
         super(txn, pwd);
     }
+
     @Override
     String getType() {
         return NamingScheme.FOLDERS;
     }
+
     public abstract List<FileSystemObject> getList();
-    
-    
-    
-     public Folder getFolder(String pwd) {
-        for (FileSystemObject fs:this.getList()){
-            if (fs instanceof Folder){
-                if(fs.getPwd().equals(pwd)){
+
+    public Folder getFolder(String pwd) {
+        for (FileSystemObject fs : this.getList()) {
+            if (fs instanceof Folder) {
+                if (fs.getPwd().equals(pwd)) {
                     return (Folder) fs;
-                }else if (pwd.startsWith(fs.getPwd())){
+                } else if (pwd.startsWith(fs.getPwd())) {
                     return getFolder(pwd);
-                } 
-                    
+                }
+
             }
         }
         return null;
     }
-     
-    public abstract File getFile(String pwd,boolean create);
+
+    public abstract File getFile(String pwd, boolean create);
+
     public abstract File createNewFile(String relPath);
+
     public abstract void deleteFile(String relPath);
 
     public abstract boolean isExisting();

@@ -41,25 +41,27 @@ import swift.exceptions.NetworkException;
 import sys.Sys;
 
 /**
- *
+ * 
  * @author Stephane Martin <stephane.martin@loria.fr>
  */
 public class SwiftSynchronizerTest {
-     private static String sequencerName = "localhost";
+    private static String sequencerName = "localhost";
     private static String scoutName = "localhost";
     private static Logger logger = Logger.getLogger("loria.swift.application.filesynchroniser");
-    //TxnHandle txn;
+    // TxnHandle txn;
     static SwiftSession server;
+
     public SwiftSynchronizerTest() {
-     
+
     }
+
     /**
      *
      */
-    
+
     @BeforeClass
-    public static void setUp()throws NetworkException {
-           DCSequencerServer.main(new String[]{"-name", sequencerName});
+    public static void setUp() throws NetworkException {
+        DCSequencerServer.main(new String[] { "-name", sequencerName });
 
         try {
             Thread.sleep(500);
@@ -67,7 +69,7 @@ public class SwiftSynchronizerTest {
             // do nothing
         }
 
-        DCServer.main(new String[]{sequencerName});
+        DCServer.main(new String[] { sequencerName });
         try {
             Thread.sleep(1000);
         } catch (InterruptedException e) {
@@ -77,37 +79,41 @@ public class SwiftSynchronizerTest {
         Sys.init();
         server = SwiftImpl.newSingleSessionInstance(new SwiftOptions(scoutName, DCConstants.SURROGATE_PORT));
 
-        
         // try {
-       // txn = server.beginTxn(IsolationLevel.SNAPSHOT_ISOLATION, CachePolicy.STRICTLY_MOST_RECENT, false);
-        
+        // txn = server.beginTxn(IsolationLevel.SNAPSHOT_ISOLATION,
+        // CachePolicy.STRICTLY_MOST_RECENT, false);
+
     }
-    
+
     @Test
     public void testLogootAsync() {
-        SwiftSynchronizerDirect sync=new SwiftSynchronizerDirect(server,IsolationLevel.SNAPSHOT_ISOLATION,  CachePolicy.STRICTLY_MOST_RECENT, true, true, LogootVersioned.class);
+        SwiftSynchronizerDirect sync = new SwiftSynchronizerDirect(server, IsolationLevel.SNAPSHOT_ISOLATION,
+                CachePolicy.STRICTLY_MOST_RECENT, true, true, LogootVersioned.class);
         sync.commit("test3", "123");
         assertEquals("123", sync.update("test3"));
     }
 
     @Test
     public void testLastWriterWinAsync() {
-        SwiftSynchronizerDirect sync=new SwiftSynchronizerDirect(server,IsolationLevel.SNAPSHOT_ISOLATION,  CachePolicy.STRICTLY_MOST_RECENT, true, true, RegisterFileContent.class);
+        SwiftSynchronizerDirect sync = new SwiftSynchronizerDirect(server, IsolationLevel.SNAPSHOT_ISOLATION,
+                CachePolicy.STRICTLY_MOST_RECENT, true, true, RegisterFileContent.class);
         sync.commit("test4", "123");
         assertEquals("123", sync.update("test4"));
     }
-    
+
     @Test
     public void testLogoot() {
-        SwiftSynchronizerDirect sync=new SwiftSynchronizerDirect(server,IsolationLevel.SNAPSHOT_ISOLATION,  CachePolicy.STRICTLY_MOST_RECENT, true, false, LogootVersioned.class);
+        SwiftSynchronizerDirect sync = new SwiftSynchronizerDirect(server, IsolationLevel.SNAPSHOT_ISOLATION,
+                CachePolicy.STRICTLY_MOST_RECENT, true, false, LogootVersioned.class);
         sync.commit("test", "123");
-        assertEquals("123",sync.update("test"));
+        assertEquals("123", sync.update("test"));
     }
-    
+
     @Test
     public void testLastWriterWin() {
-        SwiftSynchronizerDirect sync=new SwiftSynchronizerDirect(server,IsolationLevel.SNAPSHOT_ISOLATION,  CachePolicy.STRICTLY_MOST_RECENT, true, false, RegisterFileContent.class);
+        SwiftSynchronizerDirect sync = new SwiftSynchronizerDirect(server, IsolationLevel.SNAPSHOT_ISOLATION,
+                CachePolicy.STRICTLY_MOST_RECENT, true, false, RegisterFileContent.class);
         sync.commit("test2", "123");
-        assertEquals("123",sync.update("test2"));
+        assertEquals("123", sync.update("test2"));
     }
 }

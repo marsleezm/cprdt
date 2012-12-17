@@ -27,14 +27,14 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
 import loria.rc.RemoteControl;
-import loria.rc.jobs.Jobs;
 import swift.crdt.interfaces.CachePolicy;
 import swift.crdt.interfaces.IsolationLevel;
 import swift.crdt.interfaces.SwiftSession;
 
 /**
- *
+ * 
  * @author Stephane Martin <stephane.martin@loria.fr>
  */
 public class SwiftSynchronizerServer implements Runnable {
@@ -46,9 +46,8 @@ public class SwiftSynchronizerServer implements Runnable {
 
     public SwiftSynchronizerServer(SwiftSession clientServer, IsolationLevel isolationLevel, CachePolicy cachePolicy,
             boolean subscribeUpdates, boolean asyncCommit, Class textClass) {
-        ssd = new SwiftSynchronizerDirect(clientServer, isolationLevel, cachePolicy, subscribeUpdates, asyncCommit, textClass);
-
-
+        ssd = new SwiftSynchronizerDirect(clientServer, isolationLevel, cachePolicy, subscribeUpdates, asyncCommit,
+                textClass);
 
     }
 
@@ -81,7 +80,8 @@ public class SwiftSynchronizerServer implements Runnable {
             server = new ServerSocket(port);
             while (true) {
                 Socket connect = server.accept();
-                Logger.getLogger(getClass().getName()).info("Connected to : " + connect.getInetAddress().getCanonicalHostName());
+                Logger.getLogger(getClass().getName()).info(
+                        "Connected to : " + connect.getInetAddress().getCanonicalHostName());
                 Thread th = new Thread(new ConnectedServer(connect));
                 th.start();
             }
@@ -92,7 +92,7 @@ public class SwiftSynchronizerServer implements Runnable {
     }
 
     public static interface Command extends Serializable {
-        //public void apply(SwiftSynchronizerDirect ssd);
+        // public void apply(SwiftSynchronizerDirect ssd);
     }
 
     public static abstract class Connected implements Runnable {
@@ -114,7 +114,7 @@ public class SwiftSynchronizerServer implements Runnable {
                 input = new ObjectInputStream(sock.getInputStream());
                 output = new ObjectOutputStream(sock.getOutputStream());
                 do {
-                    Logger.getLogger(getClass().getName()).info("reading " );
+                    Logger.getLogger(getClass().getName()).info("reading ");
                     Object obj = input.readObject();
                     Logger.getLogger(getClass().getName()).info("recieve: " + obj.toString());
                     interpret(obj);
@@ -152,14 +152,17 @@ public class SwiftSynchronizerServer implements Runnable {
         void interpret(Object obj) throws Exception {
             if (obj instanceof Commit) {
                 Commit c = (Commit) obj;
-                Logger.getLogger(SwiftSynchronizerClient.class.getName()).log(Level.INFO, "Commit recieved " + c.getName() + ":" + c.getContent());
+                Logger.getLogger(SwiftSynchronizerClient.class.getName()).log(Level.INFO,
+                        "Commit recieved " + c.getName() + ":" + c.getContent());
                 ssd.commit(c.getName(), c.getContent());
                 Logger.getLogger(SwiftSynchronizerClient.class.getName()).log(Level.INFO, "Commited to swift ");
             } else if (obj instanceof AskUpdate) {
                 AskUpdate up = (AskUpdate) obj;
-                Logger.getLogger(SwiftSynchronizerClient.class.getName()).log(Level.INFO, "AskUpdate recieved " + up.getFileName());
+                Logger.getLogger(SwiftSynchronizerClient.class.getName()).log(Level.INFO,
+                        "AskUpdate recieved " + up.getFileName());
                 output.writeObject(new Update(up.fileName, ssd.update(up.fileName)));
-                Logger.getLogger(SwiftSynchronizerClient.class.getName()).log(Level.INFO, "Send update" + up.getFileName());
+                Logger.getLogger(SwiftSynchronizerClient.class.getName()).log(Level.INFO,
+                        "Send update" + up.getFileName());
             }
         }
     }

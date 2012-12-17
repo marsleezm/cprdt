@@ -20,37 +20,33 @@
 package loria.rc.jobs;
 
 import loria.rc.RemoteControl;
+
 import org.junit.Test;
-import static org.junit.Assert.*;
 
 /**
- *
+ * 
  * @author Stephane Martin <stephane.martin@loria.fr>
  */
 public class SwiftCloudServerJobTest {
-    
+
     public SwiftCloudServerJobTest() {
     }
 
-    
-    
-    
-    
     @Test
     public void testSomeMethod() throws Exception {
-        Thread th=new Thread(new Runnable() {
+        Thread th = new Thread(new Runnable() {
             @Override
             public void run() {
-                 RemoteControl.main();
+                RemoteControl.main();
             }
         });
         th.start();
         Thread.sleep(1000);
-        
+
         ControlerJob.Machine mach = new ControlerJob.Machine("127.0.0.1", null);
         SwiftCloudServerJob job1 = new SwiftCloudServerJob();
         mach.sendJob(job1);
         mach.waitReady();
-        
+
     }
 }

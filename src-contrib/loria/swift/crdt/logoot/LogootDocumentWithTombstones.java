@@ -19,17 +19,17 @@
 package loria.swift.crdt.logoot;
 
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
-import swift.clocks.CausalityClock;
+
 import swift.clocks.TripleTimestamp;
 
 /**
- * A Logoot document with tombstones. Each tripletimestamp associated to a logoot 
- * identifier correspond to a delete.  
- * @author urso 
+ * A Logoot document with tombstones. Each tripletimestamp associated to a
+ * logoot identifier correspond to a delete.
+ * 
+ * @author urso
  */
-public class LogootDocumentWithTombstones<T> extends LogootDocument<T> {    
+public class LogootDocumentWithTombstones<T> extends LogootDocument<T> {
     final protected RangeList<Set<TripleTimestamp>> tombstones;
 
     public LogootDocumentWithTombstones() {
@@ -38,23 +38,23 @@ public class LogootDocumentWithTombstones<T> extends LogootDocument<T> {
         tombstones.add(null);
         tombstones.add(null);
     }
-    
+
     void add(int pos, LogootIdentifier id, T content, Set<TripleTimestamp> tbs) {
         idTable.add(pos, id);
         document.add(pos, content);
         tombstones.add(pos, tbs);
     }
-    
+
     void remove(int pos) {
         idTable.remove(pos);
         document.remove(pos);
         tombstones.remove(pos);
     }
-    
+
     public void insert(LogootIdentifier id, T content) {
         int pos = dicho(id);
         add(pos, id, content, null);
-    }   
+    }
 
     public void delete(LogootIdentifier id, TripleTimestamp ts) {
         int pos = dicho(id);
@@ -66,12 +66,15 @@ public class LogootDocumentWithTombstones<T> extends LogootDocument<T> {
         tbs.add(ts);
     }
 
-    
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
-        for (int i = 1 ; i < document.size()-1; ++i) {
-            if (tombstones.get(i) == null || tombstones.get(i).isEmpty()) {  // could it be empty ?
+        for (int i = 1; i < document.size() - 1; ++i) {
+            if (tombstones.get(i) == null || tombstones.get(i).isEmpty()) { // could
+                                                                            // it
+                                                                            // be
+                                                                            // empty
+                                                                            // ?
                 sb.append(document.get(i)).append('\n');
             }
         }
@@ -94,7 +97,8 @@ public class LogootDocumentWithTombstones<T> extends LogootDocument<T> {
             return false;
         }
         final LogootDocumentWithTombstones<T> other = (LogootDocumentWithTombstones<T>) obj;
-        if (this.tombstones != other.tombstones && (this.tombstones == null || !this.tombstones.equals(other.tombstones))) {
+        if (this.tombstones != other.tombstones
+                && (this.tombstones == null || !this.tombstones.equals(other.tombstones))) {
             return false;
         }
         return super.equals(obj);

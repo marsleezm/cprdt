@@ -36,12 +36,13 @@ public class SwiftSetBenchmarkServer {
     public static void main(String[] args) throws Exception {
 
         if (args.length != 5) {
-            System.err.println(Arrays.asList( args )) ;
-            System.err.println("Usage: [surrogate address] [server id (1|2)] [isolationLevel] [cachePolicy] [notifications (true|false)]");
+            System.err.println(Arrays.asList(args));
+            System.err
+                    .println("Usage: [surrogate address] [server id (1|2)] [isolationLevel] [cachePolicy] [notifications (true|false)]");
             return;
         } else {
             SwiftSetServer.dcName = args[0];
-            
+
             int serverId = Integer.parseInt(args[1]);
             SwiftSetServer.isolationLevel = IsolationLevel.valueOf(args[2]);
             SwiftSetServer.cachePolicy = CachePolicy.valueOf(args[3]);

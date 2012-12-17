@@ -18,8 +18,6 @@
  */
 package loria.swift.crdt.logoot;
 
-import swift.clocks.Timestamp;
-import swift.crdt.interfaces.CRDTUpdate;
 import swift.crdt.operations.BaseUpdate;
 
 /**

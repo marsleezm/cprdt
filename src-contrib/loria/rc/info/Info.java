@@ -22,11 +22,9 @@ package loria.rc.info;
 import java.io.Serializable;
 
 /**
- *
+ * 
  * @author Stephane Martin <stephane.martin@loria.fr>
  */
 public abstract class Info implements Serializable {
 
-    
-    
 }

@@ -20,9 +20,9 @@
 package loria.swift.application.filesynchroniser;
 
 /**
- *
+ * 
  * @author Stephane Martin <stephane.martin@loria.fr>
  */
 public class Synchronizer {
-    
+
 }

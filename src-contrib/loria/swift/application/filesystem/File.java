@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
 import loria.swift.application.filesystem.mapper.TextualContent;
 import loria.swift.crdt.logoot.LogootVersioned;
 import swift.application.filesystem.IFile;
@@ -22,11 +23,11 @@ import swift.exceptions.WrongTypeException;
 
 /**
  * File to be stored. Contains name and id of its content.
- *
+ * 
  * @author urso
  * @author Stephane martin <stephane.martin@loria.fr>
  */
-public class File extends FileSystemObject implements Copyable, Comparable<File>,IFile {
+public class File extends FileSystemObject implements Copyable, Comparable<File>, IFile {
 
     @Override
     public Object copy() {
@@ -40,10 +41,8 @@ public class File extends FileSystemObject implements Copyable, Comparable<File>
 
     @Override
     public void uptodate(TxnHandle txn) {
-        this.txn=txn;
+        this.txn = txn;
     }
-
-    
 
     @Override
     public void update(ByteBuffer buf, long offset) {
@@ -79,34 +78,37 @@ public class File extends FileSystemObject implements Copyable, Comparable<File>
 
         Logoot, Raw
     };
+
     transient CausalityClock wipeClock;
     transient ByteArrayOutputStream content;
     transient TextualContent fc;
     // Class of maximun Causality Clock CRDT
-    //private static Class maxCCClass = MaxCausalityClockTxnLocal.class;
+    // private static Class maxCCClass = MaxCausalityClockTxnLocal.class;
     // Class of file content CRDT
     private Class fileContentClass = LogootVersioned.class;
 
     public File(TxnHandle txn, String str) {
         super(txn, str);
     }
-    /* void create(/*Class type*){
-        
-     }*/
+
+    /*
+     * void create(/*Class type*){
+     * 
+     * }
+     */
 
     void delete() {
     }
-    /*@Override
-     public boolean isExisting(){
-     throw new UnsupportedOperationException("not yet");
-     }*/
 
-    /*void load() {
-        try {
-            wipeClock = getWipeClock(txn);
-        } catch (Exception ex) {
-        }
-    }*/
+    /*
+     * @Override public boolean isExisting(){ throw new
+     * UnsupportedOperationException("not yet"); }
+     */
+
+    /*
+     * void load() { try { wipeClock = getWipeClock(txn); } catch (Exception ex)
+     * { } }
+     */
 
     public String getContent() {
         try {
@@ -125,10 +127,12 @@ public class File extends FileSystemObject implements Copyable, Comparable<File>
         return fc.getText();
     }
 
-    private CausalityClock getWipeClock(TxnHandle txn)
-            throws WrongTypeException, NoSuchObjectException, VersionNotFoundException, NetworkException {
-        throw new UnsupportedOperationException(); 
-        //return ((MaxCausalityClockTxnLocal) txn.get(NamingScheme.forWipeClock(this.pwd), false, maxCCClass)).getValue();
+    private CausalityClock getWipeClock(TxnHandle txn) throws WrongTypeException, NoSuchObjectException,
+            VersionNotFoundException, NetworkException {
+        throw new UnsupportedOperationException();
+        // return ((MaxCausalityClockTxnLocal)
+        // txn.get(NamingScheme.forWipeClock(this.pwd), false,
+        // maxCCClass)).getValue();
     }
 
     private TextualContent getContent(TxnHandle txn, String filePath, CausalityClock wipeClock)
@@ -136,8 +140,8 @@ public class File extends FileSystemObject implements Copyable, Comparable<File>
         return ((TextualContent) txn.get(NamingScheme.forContent(filePath, wipeClock), false, fileContentClass));
     }
 
-    private TextualContent getContent(TxnHandle txn, String filePath, boolean create)
-            throws WrongTypeException, NoSuchObjectException, VersionNotFoundException, NetworkException {
+    private TextualContent getContent(TxnHandle txn, String filePath, boolean create) throws WrongTypeException,
+            NoSuchObjectException, VersionNotFoundException, NetworkException {
         return ((TextualContent) txn.get(NamingScheme.forContent(filePath, null), create, fileContentClass));
     }
 

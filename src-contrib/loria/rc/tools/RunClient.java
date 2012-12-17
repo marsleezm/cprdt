@@ -6,11 +6,12 @@ package loria.rc.tools;
 
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
 import loria.rc.jobs.ClientModifierBenchmarkJob;
 import sys.Sys;
 
 /**
- *
+ * 
  * @author Stephane Martin <stephane@stephanemartin.fr>
  */
 public class RunClient {
@@ -36,17 +37,13 @@ public class RunClient {
             aSync = true;
         }
 
-
-        ClientModifierBenchmarkJob clientJob =
-                new ClientModifierBenchmarkJob(t,
-                300, aSync, 0, 5);
+        ClientModifierBenchmarkJob clientJob = new ClientModifierBenchmarkJob(t, 300, aSync, 0, 5);
 
         clientJob.setDestHostName(arg[0]);
         clientJob.setJobName(arg[1]);
 
-
         clientJob.run();
-      //  clientJob.join();
+        // clientJob.join();
         System.exit(0);
     }
 }

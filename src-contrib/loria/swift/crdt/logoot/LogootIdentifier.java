@@ -19,10 +19,12 @@
 package loria.swift.crdt.logoot;
 
 import java.io.Serializable;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Logoot identifier. A list of Component.
+ * 
  * @author urso
  */
 public class LogootIdentifier implements Comparable<LogootIdentifier>, Serializable {
@@ -49,7 +51,7 @@ public class LogootIdentifier implements Comparable<LogootIdentifier>, Serializa
     public Component getComponentAt(int position) {
         return id.get(position);
     }
-    
+
     @Override
     public boolean equals(Object obj) {
         if (obj == null) {
@@ -101,7 +103,8 @@ public class LogootIdentifier implements Comparable<LogootIdentifier>, Serializa
     }
 
     /**
-     * Digits of this identifier until index included (filled by 0s if index >= length()) 
+     * Digits of this identifier until index included (filled by 0s if index >=
+     * length())
      */
     public List<Long> digits(int index) {
         List<Long> l = new ArrayList<Long>();
@@ -137,9 +140,9 @@ public class LogootIdentifier implements Comparable<LogootIdentifier>, Serializa
     }
 
     public Component getLastComponent() {
-        return id.get(id.size()-1);
+        return id.get(id.size() - 1);
     }
-    
+
     void setComponent(int i, Component c) {
         id.set(i, c);
     }

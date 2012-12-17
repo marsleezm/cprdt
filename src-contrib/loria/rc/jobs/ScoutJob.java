@@ -20,9 +20,9 @@
 package loria.rc.jobs;
 
 /**
- *
+ * 
  * @author Stephane Martin <stephane.martin@loria.fr>
  */
 public class ScoutJob {
-    
+
 }

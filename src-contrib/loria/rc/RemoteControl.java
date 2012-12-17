@@ -28,11 +28,12 @@ import java.net.Socket;
 import java.util.LinkedList;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
 import loria.rc.jobs.Jobs;
 
 /**
  * lauched by amazon image.
- *
+ * 
  * @author Stephane Martin <stephane.martin@loria.fr>
  */
 public class RemoteControl implements Runnable {
@@ -57,67 +58,62 @@ public class RemoteControl implements Runnable {
         } catch (Exception ex) {
             Logger.getLogger(RemoteControl.class.getName()).log(Level.SEVERE, null, ex);
         }
-        //run = false;
+        // run = false;
     }
 
     public RemoteControl(Socket connect) {
         this.connect = connect;
     }
 
-    /*@Override
+    /*
+     * @Override public void run() { while (true) { if (todo.size() > 0) { //
+     * todo.pollFirst().doOperation(connect); } } }
+     */
+
+    // static class PCConnect implements Runnable {
+    /*
+     * this thread is lauched when a computer is connected
+     */
+
+    Socket connect;
+
+    /*
+     * public PCConnect(Socket connect) { this.connect = connect; }
+     */
+
+    @Override
     public void run() {
-        while (true) {
-            if (todo.size() > 0) {
-                //    todo.pollFirst().doOperation(connect);
-            }
-        }
-    }*/
+        ObjectInputStream input = null;
+        ObjectOutputStream output = null;
 
-    //static class PCConnect implements Runnable {
-        /*
-         * this thread is lauched when a computer is connected
-         */
+        try {
+            input = new ObjectInputStream(connect.getInputStream());
+            output = new ObjectOutputStream(connect.getOutputStream());
+            do {
 
-        Socket connect;
-
-       /* public PCConnect(Socket connect) {
-            this.connect = connect;
-        }*/
-
-        
-        @Override
-        public void run() {
-            ObjectInputStream input=null;
-            ObjectOutputStream output=null;
-            
+                Object obj = input.readObject();
+                Logger.getLogger(getClass().getName()).info("recieve: " + obj.toString());
+                if (obj instanceof Jobs) {
+                    // todo.add((Jobs)obj); Why not make list of jobs ?
+                    // RemoteControl.this.notify();
+                    ((Jobs) obj).doOperation(output);
+                }
+            } while (true);
+        } catch (Exception ex) {
+            Logger.getLogger(RemoteControl.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
             try {
-                 input = new ObjectInputStream(connect.getInputStream());
-                 output = new ObjectOutputStream(connect.getOutputStream());
-                do {
-
-                    Object obj = input.readObject();
-                    Logger.getLogger(getClass().getName()).info("recieve: " + obj.toString());
-                    if (obj instanceof Jobs) {
-                        //todo.add((Jobs)obj); Why not make list of jobs ?
-                        //RemoteControl.this.notify();
-                        ((Jobs) obj).doOperation(output);
-                    }
-                } while (true);
-            } catch (Exception ex) {
+                input.close();
+            } catch (IOException ex) {
                 Logger.getLogger(RemoteControl.class.getName()).log(Level.SEVERE, null, ex);
-            } finally {
-                try {
-                    input.close();
-                } catch (IOException ex) {
-                    Logger.getLogger(RemoteControl.class.getName()).log(Level.SEVERE, null, ex);
-                }
-                 try {
-                    output.close();
-                } catch (IOException ex) {
-                    Logger.getLogger(RemoteControl.class.getName()).log(Level.SEVERE, null, ex);
-                }
             }
-
+            try {
+                output.close();
+            } catch (IOException ex) {
+                Logger.getLogger(RemoteControl.class.getName()).log(Level.SEVERE, null, ex);
+            }
         }
-    //}
+
+    }
+    // }
 }

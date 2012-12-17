@@ -20,13 +20,13 @@
 package loria.swift.application.filesynchroniser;
 
 /**
- *
+ * 
  * @author Stephane Martin <stephane.martin@loria.fr>
  */
 public interface SwiftSynchronizer {
 
-     void commit(String textName, String newValue);
+    void commit(String textName, String newValue);
 
-     String update(String textName);
-    
+    String update(String textName);
+
 }

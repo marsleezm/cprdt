@@ -143,27 +143,28 @@ public class SwiftSetServer extends Thread {
                     getSession(client.remoteEndpoint()).swiftdoc.remove(r.pos);
                     client.reply(new ServerACK(r));
                 }
-     
+
                 public void onReceive(final RpcHandle client, final BulkTransaction r) {
                     long t0 = System.currentTimeMillis();
                     Session s = getSession(client.remoteEndpoint());
                     s.swiftdoc.begin();
-                    for( SwiftDocRpc i : r.ops )
-                        if( i instanceof InsertAtom ) {
-                            InsertAtom j = (InsertAtom)i;
-                            s.swiftdoc.add( j.pos, j.atom );
-                        } else
-                            if( i instanceof RemoveAtom) {
-                                RemoveAtom j = (RemoveAtom)i;
-                                s.swiftdoc.remove( j.pos);
-                            }
+                    for (SwiftDocRpc i : r.ops)
+                        if (i instanceof InsertAtom) {
+                            InsertAtom j = (InsertAtom) i;
+                            s.swiftdoc.add(j.pos, j.atom);
+                        } else if (i instanceof RemoveAtom) {
+                            RemoveAtom j = (RemoveAtom) i;
+                            s.swiftdoc.remove(j.pos);
+                        }
                     long t1 = System.currentTimeMillis();
                     s.swiftdoc.commit();
                     long now = System.currentTimeMillis();
-                    //System.err.printf( "Bulk Ops: %s total time:%s ms commit time: %s ms\n", r.ops.size(), (now - t0), (now - t1));
+                    // System.err.printf(
+                    // "Bulk Ops: %s total time:%s ms commit time: %s ms\n",
+                    // r.ops.size(), (now - t0), (now - t1));
                     client.reply(new ServerACK(r));
                 }
-                
+
             });
         } catch (Exception x) {
             x.printStackTrace();
@@ -236,14 +237,13 @@ public class SwiftSetServer extends Thread {
 
                 List<TextLine> newAtoms = new ArrayList<TextLine>();
                 for (TextLine i : doc.getValue())
-                    if (serials.add(i.serial()) ) {
+                    if (serials.add(i.serial())) {
                         newAtoms.add(i);
                     }
                 if (newAtoms.size() > 0)
                     clientHandle.reply(new ServerReply(newAtoms));
-                
-                handle.commit();
 
+                handle.commit();
 
                 Threading.synchronizedWaitOn(barrier, 10);
             }

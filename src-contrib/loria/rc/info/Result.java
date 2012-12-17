@@ -21,9 +21,10 @@ package loria.rc.info;
 
 /**
  * returns information
+ * 
  * @author Stephane Martin <stephane.martin@loria.fr>
  */
-public class Result extends Info{
+public class Result extends Info {
     String name;
     long value;
 
@@ -42,7 +43,7 @@ public class Result extends Info{
 
     @Override
     public String toString() {
-        return  name + ";" + value + '\n';
+        return name + ";" + value + '\n';
     }
-    
+
 }

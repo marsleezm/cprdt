@@ -21,14 +21,16 @@ package loria.rc.info;
 
 /**
  * It's a simple return packet for information.
+ * 
  * @author Stephane Martin <stephane.martin@loria.fr>
  */
 public class SimpleInfo extends Info {
-public static enum TypeInfo {
+    public static enum TypeInfo {
 
         Warning, Error, Info
     };
-    protected TypeInfo type=TypeInfo.Info;
+
+    protected TypeInfo type = TypeInfo.Info;
 
     public TypeInfo getType() {
         return type;
@@ -37,7 +39,7 @@ public static enum TypeInfo {
     public void setType(TypeInfo type) {
         this.type = type;
     }
-    
+
     String info;
 
     public SimpleInfo(TypeInfo type, String info) {
@@ -47,7 +49,7 @@ public static enum TypeInfo {
 
     @Override
     public String toString() {
-        return type + " : " + info +'\n';
+        return type + " : " + info + '\n';
     }
-    
+
 }

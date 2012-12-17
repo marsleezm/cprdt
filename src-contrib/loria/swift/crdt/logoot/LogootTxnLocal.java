@@ -23,10 +23,10 @@ import swift.crdt.interfaces.TxnHandle;
 
 /**
  * Logoot transaction. Is also a FileContent.
- *
+ * 
  * @author urso
  */
-public class LogootTxnLocal extends BaseCRDTTxnLocal<LogootVersioned> implements  TxnGetterSetter<Blob>,TextualContent {
+public class LogootTxnLocal extends BaseCRDTTxnLocal<LogootVersioned> implements TxnGetterSetter<Blob>, TextualContent {
 
     private static final long BOUND = 1000000000l;
     private static final int NBBIT = 64;
@@ -35,8 +35,9 @@ public class LogootTxnLocal extends BaseCRDTTxnLocal<LogootVersioned> implements
     private static final BigInteger base = BigInteger.valueOf(2).pow(NBBIT);
     private final LogootDocument<String> doc;
     private final Random ran = new Random();
-    public static final DiffAlgorithm diffAlgorithm = DiffAlgorithm.getAlgorithm(DiffAlgorithm.SupportedAlgorithm.MYERS);
-    
+    public static final DiffAlgorithm diffAlgorithm = DiffAlgorithm
+            .getAlgorithm(DiffAlgorithm.SupportedAlgorithm.MYERS);
+
     public LogootTxnLocal(CRDTIdentifier id, TxnHandle txn, CausalityClock clock, LogootVersioned creationState,
             LogootDocument doc) {
         super(id, txn, clock, creationState);
@@ -61,8 +62,8 @@ public class LogootTxnLocal extends BaseCRDTTxnLocal<LogootVersioned> implements
     ArrayList<LogootIdentifier> generateLineIdentifiers(LogootIdentifier P, LogootIdentifier Q, int n) {
         int index = 0, tMin = Math.min(P.length(), Q.length());
 
-        while ((index < tMin && P.getComponentAt(index).equals(Q.getComponentAt(index))
-                || (P.length() <= index && Q.length() > index && Q.getDigitAt(index) == 0))) {
+        while ((index < tMin && P.getComponentAt(index).equals(Q.getComponentAt(index)) || (P.length() <= index
+                && Q.length() > index && Q.getDigitAt(index) == 0))) {
             index++;
         }
 
@@ -70,13 +71,11 @@ public class LogootTxnLocal extends BaseCRDTTxnLocal<LogootVersioned> implements
         if (d >= n) {
             interval = Math.min(d / n, BOUND);
         } else {
-            BigInteger diff = d == -1 ? BigInteger.ZERO : BigInteger.valueOf(d),
-                    N = BigInteger.valueOf(n);
+            BigInteger diff = d == -1 ? BigInteger.ZERO : BigInteger.valueOf(d), N = BigInteger.valueOf(n);
             while (diff.compareTo(N) < 0) {
                 index++;
-                diff = diff.multiply(base).
-                        add(BigInteger.valueOf(max - P.getDigitAt(index)).
-                        add(BigInteger.valueOf(Q.getDigitAt(index))));
+                diff = diff.multiply(base).add(
+                        BigInteger.valueOf(max - P.getDigitAt(index)).add(BigInteger.valueOf(Q.getDigitAt(index))));
             }
             interval = diff.divide(N).min(boundBI).longValue();
         }
@@ -134,7 +133,7 @@ public class LogootTxnLocal extends BaseCRDTTxnLocal<LogootVersioned> implements
         newValue += "\n";
         final RawText a = new RawText(this.doc.toStringN().getBytes());
         final RawText b = new RawText(newValue.getBytes());
-        final EditList editList = diffAlgorithm.diff(RawTextComparator.DEFAULT, a, b);      
+        final EditList editList = diffAlgorithm.diff(RawTextComparator.DEFAULT, a, b);
         for (Edit e : editList) {
             if (e.getType() != Edit.Type.INSERT) { // del or repl
                 delete(e.getBeginB(), e.getLengthA());

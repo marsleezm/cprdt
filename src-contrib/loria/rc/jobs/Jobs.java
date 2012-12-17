@@ -22,12 +22,11 @@ package loria.rc.jobs;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
-import java.net.Socket;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- *
+ * 
  * @author Stephane Martin <stephane.martin@loria.fr>
  */
 public abstract class Jobs implements Serializable, Runnable {
@@ -80,7 +79,8 @@ public abstract class Jobs implements Serializable, Runnable {
     public void setDestHostName(String destHostName) {
         this.destHostName = destHostName;
     }
-    public void join() throws InterruptedException{
+
+    public void join() throws InterruptedException {
         th.join();
     }
 }

@@ -19,45 +19,47 @@
  */
 package loria.rc;
 
-import org.junit.Test;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
+import org.junit.Test;
 
 /**
- *
+ * 
  * @author Stephane Martin <stephane.martin@loria.fr>
  */
 public class AmazonMachineTest {
-    
-    
+
     public static AmazonMachine am;
+
     public AmazonMachineTest() {
     }
 
-     @BeforeClass
-     public static  void init() throws Exception{
-          am=new AmazonMachine();
-        
-     }
+    @BeforeClass
+    public static void init() throws Exception {
+        am = new AmazonMachine();
+
+    }
+
     @Test
     public void testSomeMethod() throws Exception {
         am.checkAndCreateSecurityGroup();
         am.startInstanceRequest(3);
-       // am.instanceIsLauched();
+        // am.instanceIsLauched();
         am.waitAllLauched();
         System.out.println("Tada !");
-       Thread.sleep(30000);
-        //assertTrue(am.areAnyOpen());
-       // Thread.sleep(60000);
-        
+        Thread.sleep(30000);
+        // assertTrue(am.areAnyOpen());
+        // Thread.sleep(60000);
+
         am.cleanupInstances();
-        //am.cleanup();
+        // am.cleanup();
     }
+
     @Ignore
-    @Test 
-    public void testCleanup(){
-       
+    @Test
+    public void testCleanup() {
+
         am.cleanupInstances();
     }
-    
+
 }

@@ -20,7 +20,7 @@
 package loria.rc.info;
 
 /**
- *
+ * 
  * @author Stephane Martin <stephane.martin@loria.fr>
  */
 public class Status extends Info {
@@ -29,6 +29,7 @@ public class Status extends Info {
 
         Finished, Ready
     };
+
     State state;
     public static final Status FINISHED = new Status(State.Finished);
     public static final Status READY = new Status(State.Ready);

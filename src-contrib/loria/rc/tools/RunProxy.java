@@ -6,6 +6,7 @@ package loria.rc.tools;
 
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
 import loria.rc.jobs.ClientModifierBenchmarkJob;
 import loria.swift.application.filesynchroniser.SwiftSynchronizerServer;
 import swift.client.SwiftImpl;
@@ -19,12 +20,12 @@ import sys.net.api.Endpoint;
 import sys.net.api.Networking;
 
 /**
- *
+ * 
  * @author Stephane Martin <stephane@stephanemartin.fr>
  */
 public class RunProxy {
-    public static void main(String ...arg){
-         if (arg.length < 3) {
+    public static void main(String... arg) {
+        if (arg.length < 3) {
             System.out.println("<host> [algo] [async]");
             return;
         }
@@ -43,14 +44,12 @@ public class RunProxy {
         if (arg.length > 2 && !arg[2].contains("alse")) {
             aSync = true;
         }
-        
-        Endpoint dcEndpoint = Networking.Networking.resolve(arg[0] , DCConstants.SURROGATE_PORT);
-           SwiftSession server= SwiftImpl
-                    .newSingleSessionInstance(new SwiftOptions(dcEndpoint.getHost(), dcEndpoint.getPort()));
-        SwiftSynchronizerServer serv=new SwiftSynchronizerServer(server, IsolationLevel.REPEATABLE_READS
-               , CachePolicy.CACHED
-                , false, aSync
-                , ClientModifierBenchmarkJob.classes[t.ordinal()]);
+
+        Endpoint dcEndpoint = Networking.Networking.resolve(arg[0], DCConstants.SURROGATE_PORT);
+        SwiftSession server = SwiftImpl.newSingleSessionInstance(new SwiftOptions(dcEndpoint.getHost(), dcEndpoint
+                .getPort()));
+        SwiftSynchronizerServer serv = new SwiftSynchronizerServer(server, IsolationLevel.REPEATABLE_READS,
+                CachePolicy.CACHED, false, aSync, ClientModifierBenchmarkJob.classes[t.ordinal()]);
         serv.start();
         System.out.println("Ready ...");
     }

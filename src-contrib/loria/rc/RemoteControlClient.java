@@ -20,9 +20,9 @@
 package loria.rc;
 
 /**
- *
+ * 
  * @author Stephane Martin <stephane.martin@loria.fr>
  */
 public class RemoteControlClient {
-    
+
 }

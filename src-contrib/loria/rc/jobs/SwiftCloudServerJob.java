@@ -25,14 +25,15 @@ import swift.dc.DCServer;
 import sys.Sys;
 
 /**
- *
+ * 
  * @author Stephane Martin <stephane.martin@loria.fr>
  */
 public class SwiftCloudServerJob extends Jobs {
-    private  String sequencerName = "localhost";
+    private String sequencerName = "localhost";
+
     @Override
     public void run() {
-        DCSequencerServer.main(new String[]{"-name", sequencerName});
+        DCSequencerServer.main(new String[] { "-name", sequencerName });
 
         try {
             Thread.sleep(500);
@@ -40,7 +41,7 @@ public class SwiftCloudServerJob extends Jobs {
             // do nothing
         }
 
-        DCServer.main(new String[]{sequencerName});
+        DCServer.main(new String[] { sequencerName });
         try {
             Thread.sleep(1000);
         } catch (InterruptedException e) {
@@ -50,5 +51,5 @@ public class SwiftCloudServerJob extends Jobs {
         Sys.init();
         sendObejct(Status.READY);
     }
-    
+
 }

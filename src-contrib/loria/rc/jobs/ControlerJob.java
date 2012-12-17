@@ -29,13 +29,14 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
 import loria.rc.AmazonMachine;
 import loria.rc.RemoteControl;
 import loria.rc.info.Status;
 
 /**
  * This job consists to mount micro instance, and lauch them
- *
+ * 
  * @author Stephane Martin <stephane.martin@loria.fr>
  */
 public class ControlerJob extends Jobs {
@@ -93,7 +94,6 @@ public class ControlerJob extends Jobs {
             Logger.getLogger(ControlerJob.class.getName()).info("Start swiftMachine");
             AmazonMachine am = new AmazonMachine();
 
-
             Logger.getLogger(ControlerJob.class.getName()).info("Start First increment client");
             am.startInstanceRequest(increment);
             Logger.getLogger(ControlerJob.class.getName()).info("Waiting Swift...");
@@ -122,7 +122,6 @@ public class ControlerJob extends Jobs {
             }
 
             /* ---- End of experiment finish all machine --- */
-
 
         } catch (Exception ex) {
             Logger.getLogger(ControlerJob.class.getName()).log(Level.SEVERE, null, ex);
@@ -203,17 +202,17 @@ public class ControlerJob extends Jobs {
                     Object obj = input.readObject();
                     if (obj instanceof Status) {
                         switch (((Status) obj).getState()) {
-                            case Finished:
-                                if (finished != null) {
-                                    finished.incrementAndGet();
-                                    finished.notifyAll();
-                                }
-                                break;
-                            case Ready:
-                                synchronized (this) {
-                                    ready = true;
-                                    notifyAll();
-                                }
+                        case Finished:
+                            if (finished != null) {
+                                finished.incrementAndGet();
+                                finished.notifyAll();
+                            }
+                            break;
+                        case Ready:
+                            synchronized (this) {
+                                ready = true;
+                                notifyAll();
+                            }
                         }
 
                     }

@@ -18,11 +18,9 @@
  */
 package loria.swift.application.filesynchroniser;
 
-import java.io.File;
-
 /**
  * A profile that generates operation similar to VCS diff (block of lines).
- *
+ * 
  * @author urso
  */
 public class StandardDiffProfile {
@@ -31,26 +29,36 @@ public class StandardDiffProfile {
 
         update, ins, del
     };
+
     private final double perUp, perIns, perBlock, sdvBlockSize, sdvLineSize;
     private final double avgBlockSize, avgLinesize, avgDelSize, sdvDelSize;
     private final RandomGauss random;
-    public static final StandardDiffProfile GIT = new StandardDiffProfile(0.69, 0.74, 1, 32.6, 137.9, 1.5, 5.8, 40, 20.0);
+    public static final StandardDiffProfile GIT = new StandardDiffProfile(0.69, 0.74, 1, 32.6, 137.9, 1.5, 5.8, 40,
+            20.0);
     public static final StandardDiffProfile BASIC = new StandardDiffProfile(0.7, 0.7, 0.9, 6, 5.0, 1, 5.8, 30, 10.0);
     public static final StandardDiffProfile SMALL = new StandardDiffProfile(0.7, 0.7, 0.9, 5, 1.0, 2, 5.8, 10, 3.0);
     public static final StandardDiffProfile WITHOUT_BLOCK = new StandardDiffProfile(0.7, 0.7, 0, 1, 0, 2, 5.8, 30, 10.0);
 
     /**
      * Constructor of profile
-     *
-     * @param perUp percentage of update vs other operation
-     * @param perIns percentage of ins vs del operation
-     * @param perBlock percentage of block operation (size >= 1)
-     * @param avgBlockSize average size of block operation (in number of lines)
-     * @param sdvBlockSize standard deviation of block operations' size
-     * @param avgLinesize average line size
-     * @param sdvLineSize standard deviation of line's size
+     * 
+     * @param perUp
+     *            percentage of update vs other operation
+     * @param perIns
+     *            percentage of ins vs del operation
+     * @param perBlock
+     *            percentage of block operation (size >= 1)
+     * @param avgBlockSize
+     *            average size of block operation (in number of lines)
+     * @param sdvBlockSize
+     *            standard deviation of block operations' size
+     * @param avgLinesize
+     *            average line size
+     * @param sdvLineSize
+     *            standard deviation of line's size
      */
-    private StandardDiffProfile(double perUp, double perIns, double perBlock, double avgBlockSize, double sdvBlockSize, double avgDelSize, double sdvDelSize, int avgLinesize, double sdvLineSize) {
+    private StandardDiffProfile(double perUp, double perIns, double perBlock, double avgBlockSize, double sdvBlockSize,
+            double avgDelSize, double sdvDelSize, int avgLinesize, double sdvLineSize) {
         this.perUp = perUp;
         this.perIns = perIns;
         this.perBlock = perBlock;
@@ -64,14 +72,12 @@ public class StandardDiffProfile {
     }
 
     private OpType nextType() {
-        return (random.nextDouble() < perUp) ? OpType.update
-                : (random.nextDouble() < perIns) ? OpType.ins : OpType.del;
+        return (random.nextDouble() < perUp) ? OpType.update : (random.nextDouble() < perIns) ? OpType.ins : OpType.del;
     }
 
     private String nextContent() {
         StringBuilder s = new StringBuilder();
-        int length = (random.nextDouble() < perBlock)
-                ? (int) random.nextLongGaussian(avgBlockSize, sdvBlockSize) : 1;
+        int length = (random.nextDouble() < perBlock) ? (int) random.nextLongGaussian(avgBlockSize, sdvBlockSize) : 1;
         for (int i = 0; i < length; i++) {
 
             int lineSize = (int) random.nextLongGaussian(avgLinesize, sdvLineSize);
@@ -84,8 +90,7 @@ public class StandardDiffProfile {
     }
 
     private int nextOffset(int position, int l) {
-        int length = (random.nextDouble() < perBlock)
-                ? (int) random.nextLongGaussian(avgDelSize, sdvDelSize) : 1;
+        int length = (random.nextDouble() < perBlock) ? (int) random.nextLongGaussian(avgDelSize, sdvDelSize) : 1;
         return Math.min(l - position, length);
     }
 
@@ -127,7 +132,7 @@ public class StandardDiffProfile {
 
     /**
      * For testing since random cannot be junit tested.
-     *
+     * 
      * @param args
      */
     public static void main(String... args) {

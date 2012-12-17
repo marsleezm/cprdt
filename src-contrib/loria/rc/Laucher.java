@@ -22,12 +22,12 @@ package loria.rc;
 import loria.rc.jobs.ControlerJob;
 
 /**
- *
+ * 
  * @author Stephane Martin <stephane.martin@loria.fr>
  */
 public class Laucher {
-    public static void main(String ...arg){
-            ControlerJob controler=new ControlerJob();
-             controler.run();
+    public static void main(String... arg) {
+        ControlerJob controler = new ControlerJob();
+        controler.run();
     }
 }

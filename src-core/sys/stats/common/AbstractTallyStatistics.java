@@ -40,8 +40,7 @@ public abstract class AbstractTallyStatistics {
 
     }
 
-    
-    //TODO: Not correct, must check
+    // TODO: Not correct, must check
     protected List<Pair<Long, Double>> getSumOverTime(double timespanMillis) {
         assert timespanMillis > this.valuePrecision;
 
@@ -60,7 +59,5 @@ public abstract class AbstractTallyStatistics {
         return getSumOverTime(opsRecorder, valuePrecision);
 
     }
-
- 
 
 }

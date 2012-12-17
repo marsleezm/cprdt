@@ -19,7 +19,6 @@
 package loria.swift.application.filesystem;
 
 import java.util.AbstractList;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.ConcurrentModificationException;
 import java.util.Iterator;
@@ -29,36 +28,35 @@ import java.util.NoSuchElementException;
 import java.util.RandomAccess;
 
 /**
- *
+ * 
  * @author urso
  */
-public class ArraySkipList<E> extends AbstractList<E> implements List<E>,
-        RandomAccess {
+public class ArraySkipList<E> extends AbstractList<E> implements List<E>, RandomAccess {
 
     /**
-     * The array buffer into which the elements of the ArrayList are stored.
-     * The capacity of the ArrayList is the length of this array buffer.
+     * The array buffer into which the elements of the ArrayList are stored. The
+     * capacity of the ArrayList is the length of this array buffer.
      */
     private transient Object[] elementData;
     /**
      * The size of the ArrayList (the number of elements it contains).
-     *
+     * 
      * @serial
      */
     private int size;
 
     /**
      * Constructs an empty list with the specified initial capacity.
-     *
-     * @param   initialCapacity   the initial capacity of the list
-     * @exception IllegalArgumentException if the specified initial capacity
-     *            is negative
+     * 
+     * @param initialCapacity
+     *            the initial capacity of the list
+     * @exception IllegalArgumentException
+     *                if the specified initial capacity is negative
      */
     public ArraySkipList(int initialCapacity) {
         super();
         if (initialCapacity < 0) {
-            throw new IllegalArgumentException("Illegal Capacity: "
-                    + initialCapacity);
+            throw new IllegalArgumentException("Illegal Capacity: " + initialCapacity);
         }
         this.elementData = new Object[initialCapacity];
     }
@@ -71,10 +69,10 @@ public class ArraySkipList<E> extends AbstractList<E> implements List<E>,
     }
 
     /**
-     * Checks if the given index is in range.  If not, throws an appropriate
-     * runtime exception.  This method does *not* check if the index is
-     * negative: It is always used immediately prior to an array access,
-     * which throws an ArrayIndexOutOfBoundsException if index is negative.
+     * Checks if the given index is in range. If not, throws an appropriate
+     * runtime exception. This method does *not* check if the index is negative:
+     * It is always used immediately prior to an array access, which throws an
+     * ArrayIndexOutOfBoundsException if index is negative.
      */
     private void rangeCheck(int index) {
         if (index >= size) {
@@ -83,20 +81,21 @@ public class ArraySkipList<E> extends AbstractList<E> implements List<E>,
     }
 
     /**
-     * Constructs an IndexOutOfBoundsException detail message.
-     * Of the many possible refactorings of the error handling code,
-     * this "outlining" performs best with both server and client VMs.
+     * Constructs an IndexOutOfBoundsException detail message. Of the many
+     * possible refactorings of the error handling code, this "outlining"
+     * performs best with both server and client VMs.
      */
     private String outOfBoundsMsg(int index) {
         return "Index: " + index + ", Size: " + size;
     }
 
     /**
-     * Increases the capacity of this <tt>ArrayList</tt> instance, if
-     * necessary, to ensure that it can hold at least the number of elements
-     * specified by the minimum capacity argument.
-     *
-     * @param   minCapacity   the desired minimum capacity
+     * Increases the capacity of this <tt>ArrayList</tt> instance, if necessary,
+     * to ensure that it can hold at least the number of elements specified by
+     * the minimum capacity argument.
+     * 
+     * @param minCapacity
+     *            the desired minimum capacity
      */
     public void ensureCapacity(int minCapacity) {
         modCount++;
@@ -114,7 +113,7 @@ public class ArraySkipList<E> extends AbstractList<E> implements List<E>,
 
     /**
      * Returns the number of elements in this list.
-     *
+     * 
      * @return the number of elements in this list
      */
     @Override
@@ -124,7 +123,7 @@ public class ArraySkipList<E> extends AbstractList<E> implements List<E>,
 
     /**
      * Returns <tt>true</tt> if this list contains no elements.
-     *
+     * 
      * @return <tt>true</tt> if this list contains no elements
      */
     @Override
@@ -133,50 +132,57 @@ public class ArraySkipList<E> extends AbstractList<E> implements List<E>,
     }
 
     /**
-     * Returns an array containing all of the elements in this list
-     * in proper sequence (from first to last element).
-     *
-     * <p>The returned array will be "safe" in that no references to it are
-     * maintained by this list.  (In other words, this method must allocate
-     * a new array).  The caller is thus free to modify the returned array.
-     *
-     * <p>This method acts as bridge between array-based and collection-based
-     * APIs.
-     *
-     * @return an array containing all of the elements in this list in
-     *         proper sequence
+     * Returns an array containing all of the elements in this list in proper
+     * sequence (from first to last element).
+     * 
+     * <p>
+     * The returned array will be "safe" in that no references to it are
+     * maintained by this list. (In other words, this method must allocate a new
+     * array). The caller is thus free to modify the returned array.
+     * 
+     * <p>
+     * This method acts as bridge between array-based and collection-based APIs.
+     * 
+     * @return an array containing all of the elements in this list in proper
+     *         sequence
      */
     @Override
     public Object[] toArray() {
         return Arrays.copyOf(elementData, size);
     }
+
     // Positional Access Operations
 
     /**
      * Returns the element at the specified position in this list.
-     *
-     * @param  index index of the element to return
+     * 
+     * @param index
+     *            index of the element to return
      * @return the element at the specified position in this list
-     * @throws IndexOutOfBoundsException {@inheritDoc}
+     * @throws IndexOutOfBoundsException
+     *             {@inheritDoc}
      */
     @Override
     public E get(int index) {
-        return index>=size ? null : (E) elementData[index];
+        return index >= size ? null : (E) elementData[index];
     }
 
     /**
-     * Replaces the element at the specified position in this list with
-     * the specified element.
-     *
-     * @param index index of the element to replace
-     * @param element element to be stored at the specified position
+     * Replaces the element at the specified position in this list with the
+     * specified element.
+     * 
+     * @param index
+     *            index of the element to replace
+     * @param element
+     *            element to be stored at the specified position
      * @return the element previously at the specified position
-     * @throws IndexOutOfBoundsException {@inheritDoc}
+     * @throws IndexOutOfBoundsException
+     *             {@inheritDoc}
      */
     @Override
     public E set(int index, E element) {
-        ensureCapacity(index+1);
-        size = Math.max(size, index+1);
+        ensureCapacity(index + 1);
+        size = Math.max(size, index + 1);
 
         E oldValue = (E) elementData[index];
         elementData[index] = element;
@@ -186,9 +192,10 @@ public class ArraySkipList<E> extends AbstractList<E> implements List<E>,
     /**
      * Returns a list iterator over the elements in this list (in proper
      * sequence).
-     *
-     * <p>The returned list iterator is <a href="#fail-fast"><i>fail-fast</i></a>.
-     *
+     * 
+     * <p>
+     * The returned list iterator is <a href="#fail-fast"><i>fail-fast</i></a>.
+     * 
      * @see #listIterator(int)
      */
     @Override
@@ -198,9 +205,10 @@ public class ArraySkipList<E> extends AbstractList<E> implements List<E>,
 
     /**
      * Returns an iterator over the elements in this list in proper sequence.
-     *
-     * <p>The returned iterator is <a href="#fail-fast"><i>fail-fast</i></a>.
-     *
+     * 
+     * <p>
+     * The returned iterator is <a href="#fail-fast"><i>fail-fast</i></a>.
+     * 
      * @return an iterator over the elements in this list in proper sequence
      */
     @Override
@@ -220,9 +228,9 @@ public class ArraySkipList<E> extends AbstractList<E> implements List<E>,
         public Itr() {
             nextCursor();
         }
-        
+
         private void nextCursor() {
-            while (cursor < size && elementData[cursor]==null) {
+            while (cursor < size && elementData[cursor] == null) {
                 cursor++;
             }
         }
@@ -245,7 +253,7 @@ public class ArraySkipList<E> extends AbstractList<E> implements List<E>,
                 throw new ConcurrentModificationException();
             }
             cursor = i + 1;
-            nextCursor();       
+            nextCursor();
             return (E) elementData[lastRet = i];
         }
 

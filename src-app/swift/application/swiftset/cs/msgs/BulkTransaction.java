@@ -25,15 +25,15 @@ public class BulkTransaction extends SwiftSetRpc {
 
     public List<SwiftSetRpc> ops;
 
-    BulkTransaction() {    
+    BulkTransaction() {
     }
-    
-    public BulkTransaction( List<SwiftSetRpc> ops ) {    
+
+    public BulkTransaction(List<SwiftSetRpc> ops) {
         this.ops = ops;
     }
-    
+
     @Override
     public void deliverTo(RpcHandle handle, RpcHandler handler) {
         ((AppRpcHandler) handler).onReceive(handle, this);
-    } 
+    }
 }

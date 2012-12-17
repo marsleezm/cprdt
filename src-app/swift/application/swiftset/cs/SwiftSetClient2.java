@@ -113,7 +113,7 @@ public class SwiftSetClient2 {
                 dcRTT.add(pong.rtt());
             }
         });
-        
+
         new PeriodicTask(0.0, 1.0) {
             public void run() {
                 if (pingCon == null)
@@ -135,7 +135,7 @@ public class SwiftSetClient2 {
             public void onReceive(final ServerReply r) {
                 synchronized (results) {
                     for (TextLine i : r.atoms)
-                            results.add(i.latency());
+                        results.add(i.latency());
                 }
                 System.err.println("Got: " + r.atoms.size() + "/" + results.size());
             }
@@ -145,9 +145,10 @@ public class SwiftSetClient2 {
         final int BATCHSIZE = 10;
         try {
             // Warmup Phase...
-//            player.parseFiles( new SwiftDocOpsImpl(true, BATCHSIZE, endpoint, server, 10));
-//
-//            // For real now...
+            // player.parseFiles( new SwiftDocOpsImpl(true, BATCHSIZE, endpoint,
+            // server, 10));
+            //
+            // // For real now...
             player.parseFiles(new SwiftDocOpsImpl(false, BATCHSIZE, endpoint, server, 250));
 
         } catch (Exception x) {
@@ -164,7 +165,7 @@ public class SwiftSetClient2 {
             System.out.printf("# RTT to %s min: %s max: %s avg: %s std: %s\n", DC, dcRTT.min(), dcRTT.max(),
                     dcRTT.average(), dcRTT.standardDeviation());
             for (Long i : results)
-                System.out.printf("%s\n", i );
+                System.out.printf("%s\n", i);
         }
         System.exit(0);
     }
@@ -179,7 +180,7 @@ public class SwiftSetClient2 {
         Endpoint server;
         int delay;
         final AckHandler ackHandler = new AckHandler();
-        
+
         final List<SwiftDocRpc> ops = new ArrayList<SwiftDocRpc>();
 
         SwiftDocOpsImpl(boolean warmup, int batchSize, RpcEndpoint endpoint, Endpoint server, int delay) {

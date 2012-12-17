@@ -2,6 +2,7 @@ package loria.swift.application.filesynchroniser;
 
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
 import loria.swift.application.filesystem.mapper.TextualContent;
 import swift.crdt.CRDTIdentifier;
 import swift.crdt.interfaces.CachePolicy;
@@ -9,8 +10,6 @@ import swift.crdt.interfaces.IsolationLevel;
 import swift.crdt.interfaces.ObjectUpdatesListener;
 import swift.crdt.interfaces.SwiftSession;
 import swift.crdt.interfaces.TxnHandle;
-import swift.exceptions.SwiftException;
-import swift.test.microbenchmark.objects.StringCopyable;
 
 // implements the social network functionality
 // see wsocial_srv.h
@@ -20,7 +19,7 @@ public class SwiftSynchronizerDirect implements SwiftSynchronizer {
     private final Logger logger = Logger.getLogger(this.getClass().getCanonicalName());
 
     private final Class textClass;
-            
+
     private SwiftSession server;
     private final IsolationLevel isolationLevel;
     private final CachePolicy cachePolicy;
@@ -40,11 +39,11 @@ public class SwiftSynchronizerDirect implements SwiftSynchronizer {
     public static CRDTIdentifier naming(final String textName) {
         return new CRDTIdentifier("texts", textName);
     }
-    
+
     @Override
-    synchronized  public String update(String textName) {
+    synchronized public String update(String textName) {
         TxnHandle txn = null;
-        String ret=null;
+        String ret = null;
         try {
             final CachePolicy loginCachePolicy;
             if (isolationLevel == IsolationLevel.SNAPSHOT_ISOLATION && cachePolicy == CachePolicy.CACHED) {
@@ -53,44 +52,42 @@ public class SwiftSynchronizerDirect implements SwiftSynchronizer {
                 loginCachePolicy = cachePolicy;
             }
             txn = server.beginTxn(isolationLevel, loginCachePolicy, false);
-            TextualContent text = (TextualContent) (txn.get(naming(textName), 
-                                   true, textClass, updatesSubscriber));
+            TextualContent text = (TextualContent) (txn.get(naming(textName), true, textClass, updatesSubscriber));
             logger.log(Level.INFO, "{0} update", textName);
             commitTxn(txn);
-            ret= text.getText();
+            ret = text.getText();
         } catch (Exception e) {
             logger.warning(e.getMessage());
         } finally {
-            try{
-            if (txn != null && !txn.getStatus().isTerminated()) {
-                txn.rollback();
-            }
-            }catch(Exception ex){
-                 logger.warning(ex.getMessage());
+            try {
+                if (txn != null && !txn.getStatus().isTerminated()) {
+                    txn.rollback();
+                }
+            } catch (Exception ex) {
+                logger.warning(ex.getMessage());
             }
         }
         return ret;
     }
-    
+
     @Override
     synchronized public void commit(String textName, String newValue) {
         TxnHandle txn = null;
         try {
             txn = server.beginTxn(isolationLevel, CachePolicy.STRICTLY_MOST_RECENT, false);
-            TextualContent text = (TextualContent) (txn.get(naming(textName), 
-                    true, textClass, updatesSubscriber));
+            TextualContent text = (TextualContent) (txn.get(naming(textName), true, textClass, updatesSubscriber));
             text.set(newValue);
             logger.log(Level.INFO, "{0} commit", textName);
-            txn.commit();        
+            txn.commit();
         } catch (Exception e) {
             logger.warning(e.getMessage());
         } finally {
-            try{
-            if (txn != null && !txn.getStatus().isTerminated()) {
-                txn.rollback();
-            }
-            }catch(Exception ex){
-                 logger.warning(ex.getMessage());
+            try {
+                if (txn != null && !txn.getStatus().isTerminated()) {
+                    txn.rollback();
+                }
+            } catch (Exception ex) {
+                logger.warning(ex.getMessage());
             }
         }
     }

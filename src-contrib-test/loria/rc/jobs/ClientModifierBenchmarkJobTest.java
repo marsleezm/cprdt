@@ -20,14 +20,13 @@
 package loria.rc.jobs;
 
 import org.junit.Test;
-import static org.junit.Assert.*;
 
 /**
- *
+ * 
  * @author Stephane Martin <stephane.martin@loria.fr>
  */
 public class ClientModifierBenchmarkJobTest {
-    
+
     public ClientModifierBenchmarkJobTest() {
     }
 

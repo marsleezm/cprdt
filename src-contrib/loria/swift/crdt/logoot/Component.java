@@ -19,6 +19,7 @@
 package loria.swift.crdt.logoot;
 
 import java.io.Serializable;
+
 import swift.clocks.TripleTimestamp;
 
 public class Component implements Comparable<Component>, Serializable {
@@ -67,7 +68,6 @@ public class Component implements Comparable<Component>, Serializable {
         }
         return true;
     }
-
 
     @Override
     public String toString() {

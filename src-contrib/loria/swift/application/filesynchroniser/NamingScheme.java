@@ -1,8 +1,5 @@
 package loria.swift.application.filesynchroniser;
 
-import swift.application.social.*;
-import swift.crdt.CRDTIdentifier;
-
 /**
  * Provides methods for generating CRDT Identifiers based on the class and type
  * of object.

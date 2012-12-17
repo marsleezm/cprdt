@@ -17,11 +17,11 @@
 package swift.application.swiftset;
 
 import java.util.concurrent.atomic.AtomicLong;
+
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.KryoSerializable;
 import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
-
 
 public class TextLine implements Comparable<TextLine>, KryoSerializable {
 
@@ -52,7 +52,7 @@ public class TextLine implements Comparable<TextLine>, KryoSerializable {
     public boolean isWarmUp() {
         return warmup;
     }
-    
+
     public int hashCode() {
         return text.hashCode();
     }
@@ -95,6 +95,6 @@ public class TextLine implements Comparable<TextLine>, KryoSerializable {
 
     @Override
     public int compareTo(TextLine other) {
-        return text.compareTo( other.text ) ;
+        return text.compareTo(other.text);
     }
 }

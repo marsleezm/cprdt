@@ -22,17 +22,18 @@ import sys.net.api.rpc.RpcHandler;
 
 public class RemoveAtom extends SwiftSetRpc {
 
-	public TextLine atom;
-	
-	RemoveAtom(){}
-	
-	public RemoveAtom( TextLine atom ){
-	    this.atom = atom;
-	}
-	
-	@Override
-	public void deliverTo(RpcHandle handle, RpcHandler handler) {
-		((AppRpcHandler)handler).onReceive(handle, this);
-	}
+    public TextLine atom;
+
+    RemoveAtom() {
+    }
+
+    public RemoveAtom(TextLine atom) {
+        this.atom = atom;
+    }
+
+    @Override
+    public void deliverTo(RpcHandle handle, RpcHandler handler) {
+        ((AppRpcHandler) handler).onReceive(handle, this);
+    }
 
 }

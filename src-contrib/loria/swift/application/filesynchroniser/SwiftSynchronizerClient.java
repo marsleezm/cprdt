@@ -28,7 +28,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- *
+ * 
  * @author Stephane Martin <stephane.martin@loria.fr>
  */
 public class SwiftSynchronizerClient implements SwiftSynchronizer {
@@ -44,14 +44,16 @@ public class SwiftSynchronizerClient implements SwiftSynchronizer {
         output = new ObjectOutputStream(sock.getOutputStream());
         input = new ObjectInputStream(sock.getInputStream());
     }
+
     public SwiftSynchronizerClient(String serverAddress, int port) throws IOException {
-        this(InetAddress.getByName(serverAddress),port);
+        this(InetAddress.getByName(serverAddress), port);
     }
 
     @Override
     public void commit(String textName, String newValue) {
         try {
-            Logger.getLogger(SwiftSynchronizerClient.class.getName()).log(Level.INFO,"Send Commit "+textName+":"+newValue);
+            Logger.getLogger(SwiftSynchronizerClient.class.getName()).log(Level.INFO,
+                    "Send Commit " + textName + ":" + newValue);
             output.writeObject(new SwiftSynchronizerServer.Commit(textName, newValue));
         } catch (IOException ex) {
             Logger.getLogger(SwiftSynchronizerClient.class.getName()).log(Level.SEVERE, null, ex);
@@ -61,10 +63,11 @@ public class SwiftSynchronizerClient implements SwiftSynchronizer {
     @Override
     public String update(String textName) {
         try {
-            Logger.getLogger(SwiftSynchronizerClient.class.getName()).log(Level.INFO,"Send AskUpdate "+textName);
+            Logger.getLogger(SwiftSynchronizerClient.class.getName()).log(Level.INFO, "Send AskUpdate " + textName);
             output.writeObject(new SwiftSynchronizerServer.AskUpdate(textName));
-            SwiftSynchronizerServer.Update up=(SwiftSynchronizerServer.Update)input.readObject();
-            Logger.getLogger(SwiftSynchronizerClient.class.getName()).log(Level.INFO,"recieve update "+textName+" : "+up.getContent());
+            SwiftSynchronizerServer.Update up = (SwiftSynchronizerServer.Update) input.readObject();
+            Logger.getLogger(SwiftSynchronizerClient.class.getName()).log(Level.INFO,
+                    "recieve update " + textName + " : " + up.getContent());
             return up.getContent();
         } catch (ClassNotFoundException ex) {
             Logger.getLogger(SwiftSynchronizerClient.class.getName()).log(Level.SEVERE, null, ex);

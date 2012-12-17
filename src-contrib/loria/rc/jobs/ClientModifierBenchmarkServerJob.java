@@ -20,14 +20,14 @@
 package loria.rc.jobs;
 
 /**
- *
+ * 
  * @author Stephane Martin <stephane.martin@loria.fr>
  */
-public class ClientModifierBenchmarkServerJob extends Jobs{
+public class ClientModifierBenchmarkServerJob extends Jobs {
     int IndirectPort = 5658;
 
     @Override
     public void run() {
     }
-    
+
 }

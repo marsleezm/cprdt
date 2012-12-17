@@ -25,7 +25,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.Enumeration;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.SortedSet;
@@ -52,10 +51,10 @@ public class SwiftSetPatchReplay<V> {
 
         // Populate initial doc with
         List<Object> doc = new ArrayList<Object>();
-        
+
         for (String i : fileToLines(initial)) {
             if (seq != null) {
-                seq.add( seq.gen(i));
+                seq.add(seq.gen(i));
             }
             doc.add(i);
         }
@@ -128,7 +127,7 @@ public class SwiftSetPatchReplay<V> {
 
         String line;
         while ((line = in.readLine()) != null) {
-            lines.add( line);
+            lines.add(line);
         }
         in.close();
         is.close();
@@ -161,7 +160,7 @@ public class SwiftSetPatchReplay<V> {
         public T remove(int v) {
             T res = super.remove(v);
             if (mirror != null)
-                mirror.remove( (V) mirror.gen(res.toString()));
+                mirror.remove((V) mirror.gen(res.toString()));
 
             return res;
         }

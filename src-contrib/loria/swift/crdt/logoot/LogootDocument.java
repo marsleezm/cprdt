@@ -19,12 +19,13 @@
 package loria.swift.crdt.logoot;
 
 import java.util.List;
+
 import swift.clocks.TripleTimestamp;
 
 /**
  * A Logoot document. Contains a list of Charater and the corresponding list of
  * LogootIndentitifer.
- *
+ * 
  * @author urso
  */
 public class LogootDocument<T> {

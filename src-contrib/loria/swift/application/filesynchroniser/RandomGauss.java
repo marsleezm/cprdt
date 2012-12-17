@@ -21,30 +21,31 @@ package loria.swift.application.filesynchroniser;
 import java.util.Random;
 
 /**
- * A random with an helper to generate gaussian random numbers.s 
+ * A random with an helper to generate gaussian random numbers.s
+ * 
  * @author urso
  */
 public class RandomGauss extends Random {
-	public RandomGauss() {
-		super();
-	}
+    public RandomGauss() {
+        super();
+    }
 
-	public RandomGauss(long seed) {
-		super(seed);
-	}
+    public RandomGauss(long seed) {
+        super(seed);
+    }
 
-	/**
-	 * Returns the next strictly positive pseudorandom, Gaussian ("normally")
-	 * distributed double value with the specified mean and the specified
-	 * standard deviation from this random number generator's sequence.
-	 * 
-	 * @param mean
-	 *            the mean
-	 * @param sdv
-	 *            the standard deviation
-	 * @return the next pseudorandom, Gaussian ("normally") distributed strictly
-	 *         positive double value
-	 */
+    /**
+     * Returns the next strictly positive pseudorandom, Gaussian ("normally")
+     * distributed double value with the specified mean and the specified
+     * standard deviation from this random number generator's sequence.
+     * 
+     * @param mean
+     *            the mean
+     * @param sdv
+     *            the standard deviation
+     * @return the next pseudorandom, Gaussian ("normally") distributed strictly
+     *         positive double value
+     */
     public double nextGaussian(double mean, double sdv) {
         double x;
         do {
@@ -52,16 +53,20 @@ public class RandomGauss extends Random {
         } while (x <= 0);
         return x;
     }
-    
+
     /**
-     * Returns the next strictly positive pseudorandom, Gaussian ("normally") 
-     * distributed double value with the specified mean and the specified 
+     * Returns the next strictly positive pseudorandom, Gaussian ("normally")
+     * distributed double value with the specified mean and the specified
      * standard deviation from this random number generator's sequence.
-     * @param mean the mean 
-     * @param sdv the standard deviation 
-     * @return the next pseudorandom, Gaussian ("normally") distributed strictly positive double value
+     * 
+     * @param mean
+     *            the mean
+     * @param sdv
+     *            the standard deviation
+     * @return the next pseudorandom, Gaussian ("normally") distributed strictly
+     *         positive double value
      */
     public long nextLongGaussian(double mean, double sdv) {
-        return 1+ (long) nextGaussian(mean-1, sdv);
+        return 1 + (long) nextGaussian(mean - 1, sdv);
     }
 }

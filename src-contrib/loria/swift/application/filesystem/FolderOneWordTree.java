@@ -26,19 +26,20 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.logging.Logger;
+
 import swift.crdt.SetStrings;
 import swift.crdt.SetTxnLocalString;
 import swift.crdt.interfaces.TxnHandle;
 
 /**
- *
+ * 
  * @author Stephane Martin <stephane.martin@loria.fr>
  */
 public class FolderOneWordTree extends Folder {
 
     boolean onDemand = false;
     SetTxnLocalString localSet;
-    //Map <String,FileSystemObject> cache;
+    // Map <String,FileSystemObject> cache;
     Set<FileSystemObject> cache;
     Map<String, FolderOneWordTree> cacheDir;
     Map<String, File> cacheFile;
@@ -69,7 +70,7 @@ public class FolderOneWordTree extends Folder {
                 File f = new File(txn, path);
                 this.cache.add(f);
                 this.cacheFile.put(path, f);
-            } else {          // folder
+            } else { // folder
                 String rep = subPath.substring(0, index);
                 FolderOneWordTree np = cacheDir.get(rep);
                 if (np == null) {
@@ -83,14 +84,15 @@ public class FolderOneWordTree extends Folder {
         }
     }
 
-    /*  private FileSystemObject getFromName(String name, boolean Dir) {
-     throw new UnsupportedOperationException();
-     }*/
+    /*
+     * private FileSystemObject getFromName(String name, boolean Dir) { throw
+     * new UnsupportedOperationException(); }
+     */
     private void checkCache() {
         load();
         String pwd2 = this.getPwd();
-        //assert(!pwd2.endsWith("/"));
-        //FileSystemObject root = this;
+        // assert(!pwd2.endsWith("/"));
+        // FileSystemObject root = this;
         for (String str : localSet.getValue()) {
             if (str.startsWith(pwd2)) {
                 buildFromPath(str);
@@ -121,9 +123,9 @@ public class FolderOneWordTree extends Folder {
                 return null;
             } else {
                 cacheFile.put(pwd, f);
-                //f.create();
+                // f.create();
                 localSet.insert(pwd);
-                //Folder fold=cacheDir.get()
+                // Folder fold=cacheDir.get()
             }
         }
         return f;
@@ -139,10 +141,10 @@ public class FolderOneWordTree extends Folder {
         }
         return f;
     }
-    /*    @Override
-     public File getFile(String pwd) {
-     return getFile(pwd, false);
-     }*/
+
+    /*
+     * @Override public File getFile(String pwd) { return getFile(pwd, false); }
+     */
 
     @Override
     public File createNewFile(String pwd) {
@@ -154,7 +156,7 @@ public class FolderOneWordTree extends Folder {
     public void uptodate(TxnHandle txn) {
         if (!this.txn.equals(txn)) {
             this.localSet = null;
-            this.txn=txn;
+            this.txn = txn;
         }
     }
 
@@ -195,5 +197,4 @@ public class FolderOneWordTree extends Folder {
         return np;
     }
 
-    
 }
