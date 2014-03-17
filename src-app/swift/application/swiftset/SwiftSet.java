@@ -27,13 +27,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import swift.client.AbstractObjectUpdatesListener;
 import swift.client.SwiftImpl;
 import swift.client.SwiftOptions;
-import swift.crdt.CRDTIdentifier;
-import swift.crdt.SortedSetTxnLocal;
-import swift.crdt.interfaces.CachePolicy;
-import swift.crdt.interfaces.IsolationLevel;
-import swift.crdt.interfaces.SwiftSession;
-import swift.crdt.interfaces.TxnHandle;
-import swift.crdt.interfaces.TxnLocalCRDT;
+import swift.crdt.AddWinsSortedSetCRDT;
+import swift.crdt.core.CRDT;
+import swift.crdt.core.CRDTIdentifier;
+import swift.crdt.core.CachePolicy;
+import swift.crdt.core.IsolationLevel;
+import swift.crdt.core.SwiftSession;
+import swift.crdt.core.TxnHandle;
 import swift.dc.DCConstants;
 import swift.dc.DCSequencerServer;
 import swift.dc.DCServer;
@@ -108,10 +108,10 @@ public class SwiftSet {
                             final Object barrier = new Object();
                             final TxnHandle handle = swift2.beginTxn(isolationLevel, k == 0 ? CachePolicy.MOST_RECENT
                                     : CachePolicy.CACHED, true);
-                            SortedSetTxnLocal<TextLine> doc = handle.get(j2, true, swift.crdt.SortedSetVersioned.class,
-                                    new AbstractObjectUpdatesListener() {
+                            AddWinsSortedSetCRDT<TextLine> doc = handle.get(j2, true,
+                                    swift.crdt.AddWinsSortedSetCRDT.class, new AbstractObjectUpdatesListener() {
                                         public void onObjectUpdate(TxnHandle txn, CRDTIdentifier id,
-                                                TxnLocalCRDT<?> previousValue) {
+                                                CRDT<?> previousValue) {
                                             Threading.synchronizedNotifyAllOn(barrier);
                                             // System.err.println("Triggered Reader get():"
                                             // + previousValue.getValue());
@@ -135,13 +135,13 @@ public class SwiftSet {
 
             player.parseFiles(new SwiftSetOps<TextLine>() {
                 TxnHandle handle = null;
-                SortedSetTxnLocal<TextLine> doc = null;
+                AddWinsSortedSetCRDT<TextLine> doc = null;
 
                 @Override
                 public void begin() {
                     try {
                         handle = swift1.beginTxn(isolationLevel, cachePolicy, false);
-                        doc = handle.get(j1, true, swift.crdt.SortedSetVersioned.class, null);
+                        doc = handle.get(j1, true, swift.crdt.AddWinsSortedSetCRDT.class, null);
                     } catch (Throwable e) {
                         e.printStackTrace();
                         System.exit(0);
@@ -154,7 +154,7 @@ public class SwiftSet {
 
                 @Override
                 public void add(TextLine atom) {
-                    doc.insert(atom);
+                    doc.add(atom);
                 }
 
                 @Override
@@ -193,9 +193,9 @@ public class SwiftSet {
                 final Object barrier = new Object();
                 final TxnHandle handle = swift1.beginTxn(isolationLevel, k == 0 ? CachePolicy.MOST_RECENT
                         : CachePolicy.CACHED, false);
-                SortedSetTxnLocal<TextLine> doc = handle.get(j1, true, swift.crdt.SortedSetVersioned.class,
+                AddWinsSortedSetCRDT<TextLine> doc = handle.get(j1, true, swift.crdt.AddWinsSortedSetCRDT.class,
                         new AbstractObjectUpdatesListener() {
-                            public void onObjectUpdate(TxnHandle txn, CRDTIdentifier id, TxnLocalCRDT<?> previousValue) {
+                            public void onObjectUpdate(TxnHandle txn, CRDTIdentifier id, CRDT<?> previousValue) {
                                 Threading.synchronizedNotifyAllOn(barrier);
                                 // System.err.println("previous:" +
                                 // previousValue.getValue());
@@ -227,10 +227,10 @@ public class SwiftSet {
                                                 // transaction to complete...
                             try {
                                 final TxnHandle handle = swift2.beginTxn(isolationLevel, CachePolicy.CACHED, false);
-                                SortedSetTxnLocal<TextLine> doc2 = handle.get(j2, true,
-                                        swift.crdt.SortedSetVersioned.class, null);
+                                AddWinsSortedSetCRDT<TextLine> doc2 = handle.get(j2, true,
+                                        swift.crdt.AddWinsSortedSetCRDT.class, null);
                                 for (TextLine i : newAtoms)
-                                    doc2.insert(i);
+                                    doc2.add(i);
                                 handle.commit();
                             } catch (Exception x) {
                                 x.printStackTrace();

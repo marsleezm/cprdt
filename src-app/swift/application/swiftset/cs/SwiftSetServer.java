@@ -39,13 +39,13 @@ import swift.application.swiftdoc.cs.msgs.SwiftDocRpc;
 import swift.client.AbstractObjectUpdatesListener;
 import swift.client.SwiftImpl;
 import swift.client.SwiftOptions;
-import swift.crdt.CRDTIdentifier;
-import swift.crdt.SequenceTxnLocal;
-import swift.crdt.interfaces.CachePolicy;
-import swift.crdt.interfaces.IsolationLevel;
-import swift.crdt.interfaces.SwiftSession;
-import swift.crdt.interfaces.TxnHandle;
-import swift.crdt.interfaces.TxnLocalCRDT;
+import swift.crdt.SequenceCRDT;
+import swift.crdt.core.CRDT;
+import swift.crdt.core.CRDTIdentifier;
+import swift.crdt.core.CachePolicy;
+import swift.crdt.core.IsolationLevel;
+import swift.crdt.core.SwiftSession;
+import swift.crdt.core.TxnHandle;
 import swift.dc.DCConstants;
 import swift.dc.DCSequencerServer;
 import swift.dc.DCServer;
@@ -173,7 +173,7 @@ public class SwiftSetServer extends Thread {
 
     TxnHandle handle = null;
     CRDTIdentifier j1 = null, j2 = null;
-    SequenceTxnLocal<TextLine> doc = null;
+    SequenceCRDT<TextLine> doc = null;
 
     RpcHandle clientHandle = null;
     SwiftSession swift1 = null;
@@ -191,7 +191,7 @@ public class SwiftSetServer extends Thread {
     public void begin() {
         try {
             handle = swift1.beginTxn(isolationLevel, cachePolicy, false);
-            doc = handle.get(j1, true, swift.crdt.SequenceVersioned.class, null);
+            doc = handle.get(j1, true, swift.crdt.SequenceCRDT.class, null);
         } catch (Throwable e) {
             e.printStackTrace();
             System.exit(0);
@@ -225,9 +225,10 @@ public class SwiftSetServer extends Thread {
                 final TxnHandle handle = swift2.beginTxn(isolationLevel, k == 0 ? CachePolicy.MOST_RECENT
                         : CachePolicy.CACHED, true);
 
-                SequenceTxnLocal<TextLine> doc = handle.get(j2, true, swift.crdt.SequenceVersioned.class,
+                SequenceCRDT<TextLine> doc = handle.get(j2, true, swift.crdt.SequenceCRDT.class,
                         new AbstractObjectUpdatesListener() {
-                            public void onObjectUpdate(TxnHandle txn, CRDTIdentifier id, TxnLocalCRDT<?> previousValue) {
+                            @Override
+                            public void onObjectUpdate(TxnHandle txn, CRDTIdentifier id, CRDT<?> previousValue) {
 
                                 Threading.synchronizedNotifyAllOn(barrier);
                                 // System.err.println("Triggered Reader get():"
