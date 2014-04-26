@@ -31,6 +31,7 @@ import swift.clocks.Timestamp;
 import swift.clocks.TimestampMapping;
 import swift.clocks.TimestampSource;
 import swift.clocks.TripleTimestamp;
+import swift.cprdt.core.CRDTShardQuery;
 import swift.crdt.core.BulkGetProgressListener;
 import swift.crdt.core.CRDT;
 import swift.crdt.core.CRDTIdentifier;
@@ -41,7 +42,9 @@ import swift.crdt.core.ManagedCRDT;
 import swift.crdt.core.ObjectUpdatesListener;
 import swift.crdt.core.TxnHandle;
 import swift.crdt.core.TxnStatus;
+import swift.exceptions.NetworkException;
 import swift.exceptions.NoSuchObjectException;
+import swift.exceptions.VersionNotFoundException;
 import swift.exceptions.WrongTypeException;
 
 /**
@@ -200,6 +203,13 @@ public class TxnTester implements TxnHandle {
     @Override
     public Map<CRDTIdentifier, CRDT<?>> bulkGet(CRDTIdentifier... ids) {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public <V extends CRDT<V>> V get(CRDTIdentifier id, boolean create, Class<V> classOfV,
+            ObjectUpdatesListener updatesListener, CRDTShardQuery<V> query) throws WrongTypeException,
+            NoSuchObjectException, VersionNotFoundException, NetworkException {
+        return get(id, create, classOfV, updatesListener);
     }
 
 }

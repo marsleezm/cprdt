@@ -21,6 +21,7 @@ import java.util.Set;
 
 import swift.client.CommitListener;
 import swift.clocks.TripleTimestamp;
+import swift.cprdt.core.CRDTShardQuery;
 import swift.exceptions.NetworkException;
 import swift.exceptions.NoSuchObjectException;
 import swift.exceptions.VersionNotFoundException;
@@ -120,6 +121,14 @@ public interface TxnHandle {
      */
     <V extends CRDT<V>> V get(CRDTIdentifier id, boolean create, Class<V> classOfV,
             final ObjectUpdatesListener updatesListener) throws WrongTypeException, NoSuchObjectException,
+            VersionNotFoundException, NetworkException;
+    
+    /**
+     * See {@link #get(CRDTIdentifier, boolean, Class, ObjectUpdatesListener)}
+     * with an added query to request only a part of the CRDT
+     */
+    <V extends CRDT<V>> V get(CRDTIdentifier id, boolean create, Class<V> classOfV,
+            final ObjectUpdatesListener updatesListener, CRDTShardQuery<V> query) throws WrongTypeException, NoSuchObjectException,
             VersionNotFoundException, NetworkException;
 
     /**

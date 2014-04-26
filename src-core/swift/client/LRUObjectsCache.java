@@ -16,11 +16,12 @@
  *****************************************************************************/
 package swift.client;
 
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.SortedSet;
@@ -29,13 +30,9 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Logger;
 
 import swift.clocks.CausalityClock;
-import swift.clocks.ClockFactory;
 import swift.clocks.Timestamp;
-import swift.clocks.TimestampMapping;
+import swift.cprdt.core.CRDTShardQuery;
 import swift.crdt.core.CRDTIdentifier;
-import swift.crdt.core.CRDTObjectUpdatesGroup;
-import swift.crdt.core.CRDTOperationDependencyPolicy;
-import swift.crdt.core.TxnHandle;
 import swift.crdt.core.ManagedCRDT;
 
 /**
@@ -57,6 +54,7 @@ class LRUObjectsCache {
     private final int maxElements;
     private final long evictionTimeMillis;
     private Map<CRDTIdentifier, Entry> entries;
+    // To get a cached object without reordering the entries
     private Map<CRDTIdentifier, Entry> shadowEntries;
     private Set<Long> evictionProtections;
 
@@ -93,7 +91,7 @@ class LRUObjectsCache {
                     // " evicted from the cache due to size limit, acesses:"
                     // + e.getNumberOfAccesses());
 
-                    logger.info("Object evicted from the cache due to size limit, acesses:" + e.getNumberOfAccesses());
+                    logger.info("Object evicted from the cache due to size limit, accesses:" + e.getNumberOfAccesses());
                     return true;
                 } else
                     return false;
@@ -114,11 +112,16 @@ class LRUObjectsCache {
      * @param object
      *            object to add
      */
-    synchronized public void add(final ManagedCRDT<?> object, long txnSerial) {
+    synchronized public void add(final ManagedCRDT<?> object, CRDTShardQuery<?> query, long txnSerial) {
         if (txnSerial >= 0)
             evictionProtections.add(txnSerial);
-
-        Entry e = new Entry(object, txnSerial);
+        
+        Entry e = shadowEntries.get(object.getUID());
+        if (e == null) {
+            e = new Entry(object, query, txnSerial);
+        } else {
+            e.add(object, query);
+        }
         entries.put(object.getUID(), e);
         shadowEntries.put(object.getUID(), e);
     }
@@ -130,13 +133,16 @@ class LRUObjectsCache {
      *            object id
      * @return object or null if object is absent in the cache
      */
-    synchronized public ManagedCRDT<?> getAndTouch(final CRDTIdentifier id) {
+    synchronized public ManagedCRDT<?> getAndTouch(final CRDTIdentifier id, CRDTShardQuery<?> query) {
         final Entry entry = entries.get(id);
         if (entry == null) {
             return null;
         }
-        entry.touch();
-        return entry.getObject();
+        ManagedCRDT<?> result = entry.getObject(query);
+        if (result != null) {
+            entry.touch();
+        }
+        return result;
     }
 
     /**
@@ -147,9 +153,13 @@ class LRUObjectsCache {
      *            object id
      * @return object or null if object is absent in the cache
      */
-    synchronized public ManagedCRDT<?> getWithoutTouch(final CRDTIdentifier id) {
+    synchronized public ManagedCRDT<?> getWithoutTouch(final CRDTIdentifier id, CRDTShardQuery<?> query) {
         final Entry entry = shadowEntries.get(id);
-        return entry == null ? null : entry.getObject();
+        return entry == null ? null : entry.getObject(query);
+    }
+    synchronized public List<ManagedCRDT<?>> getAllWithoutTouch(final CRDTIdentifier id) {
+        final Entry entry = shadowEntries.get(id);
+        return entry == null ? null : entry.getObjects();
     }
 
     /**
@@ -213,43 +223,91 @@ class LRUObjectsCache {
 
     synchronized void augmentAllWithDCCausalClockWithoutMappings(final CausalityClock causalClock) {
         for (final Entry entry : entries.values()) {
-            entry.object.augmentWithDCClockWithoutMappings(causalClock);
+            for (ManagedCRDT<?> crdt: entry.getObjects()) {
+                crdt.augmentWithDCClockWithoutMappings(causalClock);
+            }
         }
     }
 
     synchronized void augmentAllWithScoutTimestampWithoutMappings(Timestamp clientTimestamp) {
         for (final Entry entry : entries.values()) {
-            entry.object.augmentWithScoutTimestamp(clientTimestamp);
+            for (ManagedCRDT<?> crdt: entry.getObjects()) {
+                crdt.augmentWithScoutTimestamp(clientTimestamp);
+            }
         }
     }
 
     synchronized void printStats() {
         SortedSet<Entry> se = new TreeSet<Entry>(entries.values());
         for (Entry i : se)
-            System.err.println(i.object.getUID() + "/" + i.accesses);
+            System.err.println(i.getUID() + "/" + i.accesses);
     }
 
     static AtomicLong g_serial = new AtomicLong();
 
     private final class Entry implements Comparable<Entry> {
-        private final ManagedCRDT<?> object;
+        private ManagedCRDT<?> fullReplica;
+        private final LinkedList<SubEntry> partialReplicas;
         private long lastAccessTimeMillis;
         private long accesses;
         private long txnId;
         private long serial = g_serial.incrementAndGet();
 
-        public Entry(final ManagedCRDT<?> object, long txnId) {
-            this.object = object;
+        public Entry(final ManagedCRDT<?> object, CRDTShardQuery<?> query, long txnId) {
+            this.partialReplicas = new LinkedList<SubEntry>();
+            this.fullReplica = null;
+            if (query == null) {
+                this.fullReplica = object;
+            } else {
+                this.partialReplicas.addFirst(new SubEntry(object, query));
+            }
             this.txnId = txnId;
             touch();
+        }
+
+        public void add(ManagedCRDT<?> object, CRDTShardQuery<?> query) {
+            if (query == null) {
+                fullReplica = object;
+                // If we have a full replica we don't need to keep the older partial replicas
+                partialReplicas.clear();
+            } else {
+                partialReplicas.addFirst(new SubEntry(object, query));
+            }
         }
 
         public long id() {
             return txnId;
         }
 
-        public ManagedCRDT<?> getObject() {
-            return object;
+        public List<ManagedCRDT<?>> getObjects() {
+            List<ManagedCRDT<?>> result = new LinkedList<ManagedCRDT<?>>();
+            if (fullReplica != null) {
+                result.add(fullReplica);
+            }
+            for (SubEntry cprdt: partialReplicas) {
+                result.add(cprdt.getObject());
+            }
+            return result;
+        }
+        
+        @SuppressWarnings({ "unchecked", "rawtypes" })
+        public ManagedCRDT<?> getObject(CRDTShardQuery<?> query) {
+            if (fullReplica != null) {
+                return fullReplica;
+            }
+            for (SubEntry cprdt: partialReplicas) {
+                if (query.isSubqueryOf((CRDTShardQuery)cprdt.getQuery())) {
+                    return cprdt.getObject();
+                }
+            }
+            return null;
+        }
+        
+        public CRDTIdentifier getUID() {
+            if (fullReplica != null) {
+                return fullReplica.getUID();
+            }
+            return partialReplicas.getFirst().getObject().getUID();
         }
 
         public long getLastAcccessTimeMillis() {
@@ -271,6 +329,24 @@ class LRUObjectsCache {
                 return serial < other.serial ? -1 : 1;
             else
                 return accesses < other.accesses ? -1 : 1;
+        }
+        
+        private final class SubEntry {
+            private final ManagedCRDT<?> replica;
+            private final CRDTShardQuery<?> query;
+            
+            public SubEntry(ManagedCRDT<?> replica, CRDTShardQuery<?> query) {
+                this.replica = replica;
+                this.query = query;
+            }
+            
+            public ManagedCRDT<?> getObject() {
+                return replica;
+            }
+            
+            public CRDTShardQuery<?> getQuery() {
+                return query;
+            }
         }
     }
 }

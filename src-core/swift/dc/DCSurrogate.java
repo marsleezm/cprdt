@@ -35,6 +35,7 @@ import swift.clocks.CausalityClock.CMP_CLOCK;
 import swift.clocks.ClockFactory;
 import swift.clocks.Timestamp;
 import swift.clocks.TimestampMapping;
+import swift.cprdt.core.CRDTShardQuery;
 import swift.crdt.core.CRDTIdentifier;
 import swift.crdt.core.CRDTObjectUpdatesGroup;
 import swift.crdt.core.CRDT;
@@ -253,6 +254,14 @@ class DCSurrogate extends SwiftProtocolHandler {
                 crdt.augmentWithDCClockWithoutMappings(estimatedDCVersionCopy);
                 if (cltLastSeqNo != null)
                     crdt.augmentWithScoutClockWithoutMappings(cltLastSeqNo);
+                CRDTShardQuery<?> query = request.getQuery();
+                if (query != null) {
+                    crdt = crdt.copy();
+                    if (!query.isStateIndependent()) {
+                        crdt.prune((request.getVersion() == null) ? estimatedDCVersionCopy : request.getVersion(), false);
+                    }
+                    crdt.applyShardQuery(query);
+                }
                 final FetchObjectVersionReply.FetchStatus status = (cmp == CMP_CLOCK.CMP_ISDOMINATED || cmp == CMP_CLOCK.CMP_CONCURRENT) ? FetchStatus.VERSION_NOT_FOUND
                         : FetchStatus.OK;
                 if (logger.isLoggable(Level.INFO)) {

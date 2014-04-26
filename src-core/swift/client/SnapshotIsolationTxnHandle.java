@@ -21,6 +21,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import swift.clocks.CausalityClock;
 import swift.clocks.TimestampMapping;
+import swift.cprdt.core.CRDTShardQuery;
 import swift.crdt.core.CRDT;
 import swift.crdt.core.CRDTIdentifier;
 import swift.crdt.core.CachePolicy;
@@ -92,16 +93,16 @@ class SnapshotIsolationTxnHandle extends AbstractTxnHandle implements TxnHandle 
 
     @Override
     protected <V extends CRDT<V>> V getImpl(CRDTIdentifier id, boolean create, Class<V> classOfV,
-            ObjectUpdatesListener updatesListener) throws WrongTypeException, NoSuchObjectException,
+            ObjectUpdatesListener updatesListener, CRDTShardQuery<V> query) throws WrongTypeException, NoSuchObjectException,
             VersionNotFoundException, NetworkException {
         CRDT<V> localView = (CRDT<V>) objectViewsCache.get(id);
         if (localView != null && updatesListener != null) {
             // force another read to install the listener and discard it
-            manager.getObjectVersionTxnView(this, id, localView.getClock(), create, classOfV, updatesListener);
+            manager.getObjectVersionTxnView(this, id, localView.getClock(), create, classOfV, updatesListener, query);
         }
         if (localView == null) {
             localView = manager.getObjectVersionTxnView(this, id, getUpdatesDependencyClock(), create, classOfV,
-                    updatesListener);
+                    updatesListener, query);
             objectViewsCache.put(id, localView);
         }
         return (V) localView;

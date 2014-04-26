@@ -27,6 +27,7 @@ import swift.clocks.CausalityClock.CMP_CLOCK;
 import swift.clocks.ClockFactory;
 import swift.clocks.Timestamp;
 import swift.clocks.TimestampMapping;
+import swift.cprdt.core.CRDTShardQuery;
 
 /**
  * Generic manager of an operation-based CRDT implementation V that provides
@@ -392,6 +393,15 @@ public class ManagedCRDT<V extends CRDT<V>> implements Copyable {
         }
 
         return newOperation;
+    }
+    
+    /**
+     * Apply the given shard query at the checkpoint of the managed CRDT
+     * 
+     * @param query
+     */
+    public void applyShardQuery(CRDTShardQuery<V> query) {
+        checkpoint = query.executeAt(checkpoint);
     }
 
     /**

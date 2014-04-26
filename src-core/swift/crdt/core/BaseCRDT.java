@@ -18,6 +18,8 @@ package swift.crdt.core;
 
 import swift.clocks.CausalityClock;
 import swift.clocks.TripleTimestamp;
+import swift.cprdt.core.Shard;
+import swift.cprdt.core.ShardFull;
 
 /**
  * Base class for operation-based CRDT objects.
@@ -50,6 +52,8 @@ public abstract class BaseCRDT<V extends BaseCRDT<V>> implements CRDT<V> {
     protected TxnHandle txn;
     // version of the object (can be null)
     protected CausalityClock clock;
+    
+    protected Shard<V> shard;
 
     /**
      * Kryo empty constructor, DO NOT USE for purposes other than serialization.
@@ -86,6 +90,7 @@ public abstract class BaseCRDT<V extends BaseCRDT<V>> implements CRDT<V> {
         this.id = id;
         this.txn = txn;
         this.clock = clock;
+        this.shard = new ShardFull<V>();
     }
 
     @Override
@@ -115,6 +120,10 @@ public abstract class BaseCRDT<V extends BaseCRDT<V>> implements CRDT<V> {
      */
     protected void registerLocalOperation(final CRDTUpdate<V> op) {
         getTxnHandle().registerOperation(this.id, op);
+    }
+    
+    public Shard<V> getShard() {
+        return shard;
     }
 
     @Override

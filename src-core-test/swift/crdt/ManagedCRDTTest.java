@@ -52,6 +52,7 @@ import swift.crdt.core.ManagedCRDT;
 import swift.crdt.core.ObjectUpdatesListener;
 import swift.crdt.core.TxnHandle;
 import swift.crdt.core.TxnStatus;
+import swift.cprdt.core.CRDTShardQuery;
 import swift.exceptions.NetworkException;
 import swift.exceptions.NoSuchObjectException;
 import swift.exceptions.VersionNotFoundException;
@@ -470,6 +471,14 @@ public class ManagedCRDTTest {
 
             @Override
             public TxnStatus getStatus() {
+                fail();
+                return null;
+            }
+
+            @Override
+            public <V extends CRDT<V>> V get(CRDTIdentifier id, boolean create, Class<V> classOfV,
+                    ObjectUpdatesListener updatesListener, CRDTShardQuery<V> query) throws WrongTypeException, NoSuchObjectException,
+                    VersionNotFoundException, NetworkException {
                 fail();
                 return null;
             }

@@ -17,6 +17,7 @@
 package swift.crdt.core;
 
 import swift.clocks.CausalityClock;
+import swift.cprdt.core.Shard;
 
 // WISHME: separate client and system interface
 // TODO: Extend interface to offer optional buffering of transaction's updates (e.g. to aggregate increments, assignments etc.)
@@ -61,6 +62,11 @@ public interface CRDT<V extends CRDT<V>> extends Copyable {
      *         where updates are registered and timestamps generated
      */
     TxnHandle getTxnHandle();
+    
+    /**
+     * @return associated shard: which part of the CRDT is available in that replica
+     */
+    Shard<V> getShard();
 
     /**
      * <b>INTERNAL, SYSTEM USE.</b>

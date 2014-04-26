@@ -17,6 +17,7 @@
 package swift.proto;
 
 import swift.clocks.CausalityClock;
+import swift.cprdt.core.CRDTShardQuery;
 import swift.crdt.core.CRDTIdentifier;
 import sys.net.api.rpc.RpcHandle;
 import sys.net.api.rpc.RpcHandler;
@@ -29,6 +30,8 @@ import sys.net.api.rpc.RpcHandler;
 public class FetchObjectVersionRequest extends ClientRequest {
     protected CRDTIdentifier uid;
     protected CausalityClock version;
+    // Optional query to get only a part of the CRDT
+    protected CRDTShardQuery<?> query;
     // FIXME: make these things optional? Used only by evaluation.
     protected CausalityClock clock;
     protected CausalityClock disasterDurableClock;
@@ -45,22 +48,24 @@ public class FetchObjectVersionRequest extends ClientRequest {
     FetchObjectVersionRequest() {
     }
 
-    public FetchObjectVersionRequest(String clientId, CRDTIdentifier uid, CausalityClock version,
+    public FetchObjectVersionRequest(String clientId, CRDTIdentifier uid, CausalityClock version, CRDTShardQuery<?> query,
             final boolean strictUnprunedVersion, boolean subscribe) {
         super(clientId);
         this.uid = uid;
         this.version = version;
+        this.query = query;
         this.subscribe = subscribe;
         this.strictUnprunedVersion = strictUnprunedVersion;
     }
 
-    public FetchObjectVersionRequest(String clientId, CRDTIdentifier uid, CausalityClock version,
+    public FetchObjectVersionRequest(String clientId, CRDTIdentifier uid, CausalityClock version, CRDTShardQuery<?> query,
             final boolean strictUnprunedVersion, CausalityClock clock, CausalityClock disasterDurableClock,
             boolean subscribe) {
         super(clientId);
         this.uid = uid;
         this.clock = clock;
         this.version = version;
+        this.query = query;
         this.subscribe = subscribe;
         this.strictUnprunedVersion = strictUnprunedVersion;
         this.disasterDurableClock = disasterDurableClock;
@@ -82,6 +87,10 @@ public class FetchObjectVersionRequest extends ClientRequest {
      */
     public CausalityClock getVersion() {
         return version;
+    }
+    
+    public CRDTShardQuery<?> getQuery() {
+        return query;
     }
 
     /**

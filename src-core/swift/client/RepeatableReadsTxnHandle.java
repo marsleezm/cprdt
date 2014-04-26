@@ -20,6 +20,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import swift.clocks.TimestampMapping;
+import swift.cprdt.core.CRDTShardQuery;
 import swift.crdt.core.CRDT;
 import swift.crdt.core.CRDTIdentifier;
 import swift.crdt.core.CachePolicy;
@@ -85,15 +86,16 @@ class RepeatableReadsTxnHandle extends AbstractTxnHandle {
 
     @Override
     protected <V extends CRDT<V>> V getImpl(CRDTIdentifier id, boolean create, Class<V> classOfV,
-            ObjectUpdatesListener updatesListener) throws WrongTypeException, NoSuchObjectException,
+            ObjectUpdatesListener updatesListener, CRDTShardQuery<V> query) throws WrongTypeException, NoSuchObjectException,
             VersionNotFoundException, NetworkException {
+        // TODO: caching with queries
         CRDT<V> localView = (CRDT<V>) objectViewsCache.get(id);
         if (localView != null && updatesListener != null) {
             // force another read to install the listener and discard it
-            manager.getObjectVersionTxnView(this, id, localView.getClock(), create, classOfV, updatesListener);
+            manager.getObjectVersionTxnView(this, id, localView.getClock(), create, classOfV, updatesListener, query);
         }
         if (localView == null) {
-            localView = manager.getObjectLatestVersionTxnView(this, id, cachePolicy, create, classOfV, updatesListener);
+            localView = manager.getObjectLatestVersionTxnView(this, id, cachePolicy, create, classOfV, updatesListener, query);
             objectViewsCache.put(id, localView);
             updateUpdatesDependencyClock(localView.getClock());
         }

@@ -17,6 +17,7 @@
 package swift.client;
 
 import swift.clocks.CausalityClock;
+import swift.cprdt.core.CRDTShardQuery;
 import swift.crdt.core.CRDTIdentifier;
 import swift.crdt.core.CachePolicy;
 import swift.crdt.core.ObjectUpdatesListener;
@@ -34,11 +35,11 @@ import swift.exceptions.WrongTypeException;
 public interface TxnManager {
 
     <V extends CRDT<V>> CRDT<V> getObjectLatestVersionTxnView(AbstractTxnHandle txn, CRDTIdentifier id,
-            CachePolicy cachePolicy, boolean create, Class<V> classOfV, final ObjectUpdatesListener updatesListener)
+            CachePolicy cachePolicy, boolean create, Class<V> classOfV, final ObjectUpdatesListener updatesListener, CRDTShardQuery<V> query)
             throws WrongTypeException, NoSuchObjectException, VersionNotFoundException, NetworkException;
 
     <V extends CRDT<V>> CRDT<V> getObjectVersionTxnView(AbstractTxnHandle txn, CRDTIdentifier id,
-            CausalityClock version, boolean create, Class<V> classOfV, ObjectUpdatesListener updatesListener)
+            CausalityClock version, boolean create, Class<V> classOfV, ObjectUpdatesListener updatesListener, CRDTShardQuery<V> query)
             throws WrongTypeException, NoSuchObjectException, VersionNotFoundException, NetworkException;
 
     void discardTxn(AbstractTxnHandle txn);

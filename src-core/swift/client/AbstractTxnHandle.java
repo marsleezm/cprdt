@@ -33,6 +33,7 @@ import swift.clocks.IncrementalTripleTimestampGenerator;
 import swift.clocks.Timestamp;
 import swift.clocks.TimestampMapping;
 import swift.clocks.TripleTimestamp;
+import swift.cprdt.core.CRDTShardQuery;
 import swift.crdt.core.BulkGetProgressListener;
 import swift.crdt.core.CRDT;
 import swift.crdt.core.CRDTIdentifier;
@@ -183,11 +184,19 @@ abstract class AbstractTxnHandle implements TxnHandle, Comparable<AbstractTxnHan
     public <V extends CRDT<V>> V get(CRDTIdentifier id, boolean create, Class<V> classOfV,
             ObjectUpdatesListener listener) throws WrongTypeException, NoSuchObjectException, VersionNotFoundException,
             NetworkException {
+        return get(id, create, classOfV, null, null);
+    }
+    
+    @Override
+    @SuppressWarnings("unchecked")
+    public <V extends CRDT<V>> V get(CRDTIdentifier id, boolean create, Class<V> classOfV,
+            ObjectUpdatesListener listener, CRDTShardQuery<V> query) throws WrongTypeException, NoSuchObjectException, VersionNotFoundException,
+            NetworkException {
         assertStatus(TxnStatus.PENDING);
         try {
             if (SwiftImpl.DEFAULT_LISTENER_FOR_GET && listener == null)
                 listener = SwiftImpl.DEFAULT_LISTENER;
-            return getImpl(id, create, classOfV, listener);
+            return getImpl(id, create, classOfV, listener, query);
         } catch (ClassCastException x) {
             throw new WrongTypeException(x.getMessage());
         }
@@ -369,7 +378,7 @@ abstract class AbstractTxnHandle implements TxnHandle, Comparable<AbstractTxnHan
      * depends on every version read by the transaction.
      */
     protected abstract <V extends CRDT<V>> V getImpl(CRDTIdentifier id, boolean create, Class<V> classOfV,
-            ObjectUpdatesListener updatesListener) throws WrongTypeException, NoSuchObjectException,
+            ObjectUpdatesListener updatesListener, CRDTShardQuery<V> query) throws WrongTypeException, NoSuchObjectException,
             VersionNotFoundException, NetworkException;
 
     /**
