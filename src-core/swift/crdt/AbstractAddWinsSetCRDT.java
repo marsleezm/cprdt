@@ -22,6 +22,7 @@ import java.util.Set;
 
 import swift.clocks.CausalityClock;
 import swift.clocks.TripleTimestamp;
+import swift.cprdt.core.Shard;
 import swift.crdt.core.BaseCRDT;
 import swift.crdt.core.CRDTIdentifier;
 import swift.crdt.core.TxnHandle;
@@ -50,6 +51,11 @@ public abstract class AbstractAddWinsSetCRDT<V, T extends AbstractAddWinsSetCRDT
 
     protected AbstractAddWinsSetCRDT(final CRDTIdentifier id, final TxnHandle txn, final CausalityClock clock) {
         super(id, txn, clock);
+    }
+
+    public AbstractAddWinsSetCRDT(CRDTIdentifier id, TxnHandle txn, CausalityClock clock,
+            Shard<T> shard) {
+        super(id, txn, clock, shard);
     }
 
     protected abstract Map<V, Set<TripleTimestamp>> getElementsInstances();

@@ -84,15 +84,18 @@ public abstract class BaseCRDT<V extends BaseCRDT<V>> implements CRDT<V> {
      *            (otherwise null)
      */
     protected BaseCRDT(CRDTIdentifier id, TxnHandle txn, CausalityClock clock) {
+        this(id, txn, clock, new ShardFull<V>());
+    }
+    
+    protected BaseCRDT(CRDTIdentifier id, TxnHandle txn, CausalityClock clock, Shard<V> shard) {
         if (id == null) {
             throw new IllegalArgumentException("No id provided for an object");
         }
         this.id = id;
         this.txn = txn;
         this.clock = clock;
-        this.shard = new ShardFull<V>();
+        this.shard = shard;
     }
-
     @Override
     public CRDTIdentifier getUID() {
         return this.id;
