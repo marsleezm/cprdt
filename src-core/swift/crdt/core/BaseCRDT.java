@@ -52,8 +52,6 @@ public abstract class BaseCRDT<V extends BaseCRDT<V>> implements CRDT<V> {
     protected TxnHandle txn;
     // version of the object (can be null)
     protected CausalityClock clock;
-    
-    protected Shard<V> shard;
 
     /**
      * Kryo empty constructor, DO NOT USE for purposes other than serialization.
@@ -84,18 +82,14 @@ public abstract class BaseCRDT<V extends BaseCRDT<V>> implements CRDT<V> {
      *            (otherwise null)
      */
     protected BaseCRDT(CRDTIdentifier id, TxnHandle txn, CausalityClock clock) {
-        this(id, txn, clock, new ShardFull<V>());
-    }
-    
-    protected BaseCRDT(CRDTIdentifier id, TxnHandle txn, CausalityClock clock, Shard<V> shard) {
         if (id == null) {
             throw new IllegalArgumentException("No id provided for an object");
         }
         this.id = id;
         this.txn = txn;
         this.clock = clock;
-        this.shard = shard;
     }
+    
     @Override
     public CRDTIdentifier getUID() {
         return this.id;
@@ -123,10 +117,6 @@ public abstract class BaseCRDT<V extends BaseCRDT<V>> implements CRDT<V> {
      */
     protected void registerLocalOperation(final CRDTUpdate<V> op) {
         getTxnHandle().registerOperation(this.id, op);
-    }
-    
-    public Shard<V> getShard() {
-        return shard;
     }
 
     @Override

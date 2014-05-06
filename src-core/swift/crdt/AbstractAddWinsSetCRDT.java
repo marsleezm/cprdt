@@ -53,11 +53,6 @@ public abstract class AbstractAddWinsSetCRDT<V, T extends AbstractAddWinsSetCRDT
         super(id, txn, clock);
     }
 
-    public AbstractAddWinsSetCRDT(CRDTIdentifier id, TxnHandle txn, CausalityClock clock,
-            Shard<T> shard) {
-        super(id, txn, clock, shard);
-    }
-
     protected abstract Map<V, Set<TripleTimestamp>> getElementsInstances();
 
     /**

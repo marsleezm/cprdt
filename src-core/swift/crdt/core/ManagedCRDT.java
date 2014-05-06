@@ -28,6 +28,9 @@ import swift.clocks.ClockFactory;
 import swift.clocks.Timestamp;
 import swift.clocks.TimestampMapping;
 import swift.cprdt.core.CRDTShardQuery;
+import swift.cprdt.core.CRDTShardQueryResult;
+import swift.cprdt.core.Shard;
+import swift.cprdt.core.ShardFull;
 
 /**
  * Generic manager of an operation-based CRDT implementation V that provides
@@ -75,6 +78,8 @@ public class ManagedCRDT<V extends CRDT<V>> implements Copyable {
     // log of updates, in some linear extension of causality, stripped of
     // unnecessary information (dependency clocks and ids)
     protected List<CRDTObjectUpdatesGroup<V>> strippedLog;
+    
+    protected Shard<V> shard;
 
     public ManagedCRDT() {
     }
@@ -103,6 +108,7 @@ public class ManagedCRDT<V extends CRDT<V>> implements Copyable {
         this.clock = clock;
         this.pruneClock = ClockFactory.newClock();
         this.registeredInStore = registeredInStore;
+        this.shard = new ShardFull<V>();
     }
 
     /**
@@ -262,6 +268,9 @@ public class ManagedCRDT<V extends CRDT<V>> implements Copyable {
         switch (getClock().compareTo(other.getClock())) {
         case CMP_DOMINATES:
         case CMP_EQUALS:
+            if (!other.getShard().isSubsetOf(this.getShard())) {
+                throw new IllegalStateException("Unsupported attempt to merge objects with incompatible shards (dominates, equals)");
+            }
             // Easy case, not much to do.
             // Heuristic: resolve a potential difference in pruning point in
             // favor of "this" over "other".
@@ -276,6 +285,9 @@ public class ManagedCRDT<V extends CRDT<V>> implements Copyable {
             }
             break;
         case CMP_ISDOMINATED:
+            if (!this.getShard().isSubsetOf(other.getShard())) {
+                throw new IllegalStateException("Unsupported attempt to merge objects with incompatible shards (dominated)");
+            }
             // The exact opposite of the above case.
             this.checkpoint = other.checkpoint.copy();
             this.pruneClock = other.pruneClock.clone();
@@ -304,6 +316,11 @@ public class ManagedCRDT<V extends CRDT<V>> implements Copyable {
                 throw new IllegalStateException(
                         "Unsupported attempt to merge objects with concurrent clocks and a clock concurrent to pruning point");
             }
+            
+            if (!this.getShard().isSubsetOf(other.getShard())) {
+                throw new IllegalStateException("Unsupported attempt to merge objects with incompatible shards (concurrent)");
+            }
+            
             this.checkpoint = other.checkpoint;
             this.pruneClock = other.pruneClock.clone();
             this.clock.merge(other.clock);
@@ -396,12 +413,21 @@ public class ManagedCRDT<V extends CRDT<V>> implements Copyable {
     }
     
     /**
+     * @return associated shard: which part of the CRDT is available in that replica
+     */
+    public Shard<V> getShard() {
+        return shard;
+    }
+    
+    /**
      * Apply the given shard query at the checkpoint of the managed CRDT
      * 
      * @param query
      */
-    public void applyShardQuery(CRDTShardQuery<V> query) {
-        checkpoint = query.executeAt(checkpoint);
+    public void applyShardQuery(CRDTShardQuery<V> query, CausalityClock onVersion) {
+        CRDTShardQueryResult<V> result = query.executeAt(getReadOnlyVersion(onVersion), checkpoint);
+        shard = result.getShard();
+        checkpoint = result.getCrdt();
     }
 
     /**
@@ -445,6 +471,25 @@ public class ManagedCRDT<V extends CRDT<V>> implements Copyable {
     public V getLatestVersion(TxnHandle txn) {
         // WISHME: cache the most recent version? it should be easy.
         return getVersion(getClock(), txn);
+    }
+    
+    /**
+     * Same as getVersion but without txn handler
+     * 
+     * @param versionClock
+     * @return
+     */
+    public V getReadOnlyVersion(CausalityClock versionClock) {
+        assertGreaterEqualsPruneClock(versionClock);
+        assertLessEqualsClock(versionClock);
+
+        final V version = (V) checkpoint.copy();
+        for (final CRDTObjectUpdatesGroup<V> updates : strippedLog) {
+            if (updates.anyTimestampIncluded(versionClock)) {
+                updates.applyTo(version);
+            }
+        }
+        return version;
     }
 
     protected void assertLessEqualsClock(CausalityClock clock) {

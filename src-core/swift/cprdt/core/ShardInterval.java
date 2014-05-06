@@ -65,6 +65,10 @@ public class ShardInterval<V extends CRDT<V>> implements Shard<V> {
         return true;
     }
     
+    // Kryo
+    public ShardInterval() {
+    }
+    
     public ShardInterval(Comparator<Object> comparator, Object from, boolean fromInclusive, Object to, boolean toInclusive) {
         this.comparator = comparator;
         this.from = from;

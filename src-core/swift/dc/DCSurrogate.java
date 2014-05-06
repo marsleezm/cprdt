@@ -256,11 +256,7 @@ class DCSurrogate extends SwiftProtocolHandler {
                     crdt.augmentWithScoutClockWithoutMappings(cltLastSeqNo);
                 CRDTShardQuery<?> query = request.getQuery();
                 if (query != null) {
-                    crdt = crdt.copy();
-                    if (!query.isStateIndependent()) {
-                        crdt.prune((request.getVersion() == null) ? estimatedDCVersionCopy : request.getVersion(), false);
-                    }
-                    crdt.applyShardQuery(query);
+                    crdt.applyShardQuery(query, estimatedDCVersionCopy);
                 }
                 final FetchObjectVersionReply.FetchStatus status = (cmp == CMP_CLOCK.CMP_ISDOMINATED || cmp == CMP_CLOCK.CMP_CONCURRENT) ? FetchStatus.VERSION_NOT_FOUND
                         : FetchStatus.OK;

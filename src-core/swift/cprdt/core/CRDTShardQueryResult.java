@@ -1,5 +1,5 @@
 /*****************************************************************************
- * Copyright 2013-2014 UCL
+ * Copyright 2014 UCL
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,29 +15,22 @@
  *****************************************************************************/
 package swift.cprdt.core;
 
-import java.util.Set;
-
 import swift.crdt.core.CRDT;
 
-/**
- * For full replicas of a CRDT
- * 
- * @author Iwan Briquemont
- */
-public class ShardFull<V extends CRDT<V>> implements Shard<V> {
-    // Kryo
-    public ShardFull() {
+public class CRDTShardQueryResult<V extends CRDT<V>> {
+    protected Shard<V> shard;
+    protected V crdt;
+    
+    public CRDTShardQueryResult(Shard<V> shard, V crdt) {
+        this.shard = shard;
+        this.crdt = crdt;
     }
     
-    public boolean contains(Object particle) {
-        return true;
+    public Shard<V> getShard() {
+        return shard;
     }
     
-    public boolean containsAll(Set<?> particles) {
-        return true;
-    }
-    
-    public boolean isSubsetOf(Shard<V> other) {
-        return (other instanceof ShardFull<?>);
+    public V getCrdt() {
+        return crdt;
     }
 }

@@ -110,6 +110,7 @@ final public class RpcFactoryImpl implements RpcFactory, MessageHandler {
             public void run() {
                 conMgr.remove(conn);
                 Log.info("Connection failed to:" + conn.remoteEndpoint() + "/ cause:" + conn.causeOfFailure());
+                conn.causeOfFailure().printStackTrace();
             }
         };
     }

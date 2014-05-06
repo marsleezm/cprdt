@@ -62,11 +62,6 @@ public interface CRDT<V extends CRDT<V>> extends Copyable {
      *         where updates are registered and timestamps generated
      */
     TxnHandle getTxnHandle();
-    
-    /**
-     * @return associated shard: which part of the CRDT is available in that replica
-     */
-    Shard<V> getShard();
 
     /**
      * <b>INTERNAL, SYSTEM USE.</b>

@@ -27,6 +27,10 @@ import swift.crdt.core.CRDT;
 public class ShardSet<V extends CRDT<V>> implements Shard<V> {
     protected Set<?> particles;
     
+    // Kryo
+    public ShardSet() {
+    }
+    
     public ShardSet(Set<?> particles) {
         this.particles = particles;
     }

@@ -32,6 +32,7 @@ import java.util.logging.Logger;
 import swift.clocks.CausalityClock;
 import swift.clocks.Timestamp;
 import swift.cprdt.core.CRDTShardQuery;
+import swift.cprdt.core.Shard;
 import swift.crdt.core.CRDTIdentifier;
 import swift.crdt.core.ManagedCRDT;
 
@@ -113,14 +114,17 @@ class LRUObjectsCache {
      *            object to add
      */
     synchronized public void add(final ManagedCRDT<?> object, CRDTShardQuery<?> query, long txnSerial) {
-        if (txnSerial >= 0)
-            evictionProtections.add(txnSerial);
         
         Entry e = shadowEntries.get(object.getUID());
         if (e == null) {
             e = new Entry(object, query, txnSerial);
+            if (txnSerial >= 0)
+                evictionProtections.add(txnSerial);
         } else {
             e.add(object, query);
+            e.touch();
+            if (txnSerial >= 0)
+                evictionProtections.add(e.id());
         }
         entries.put(object.getUID(), e);
         shadowEntries.put(object.getUID(), e);
@@ -296,7 +300,7 @@ class LRUObjectsCache {
                 return fullReplica;
             }
             for (SubEntry cprdt: partialReplicas) {
-                if (query.isSubqueryOf((CRDTShardQuery)cprdt.getQuery())) {
+                if (query.isSubqueryOf((Shard)cprdt.getObject().getShard(), (CRDTShardQuery)cprdt.getQuery())) {
                     return cprdt.getObject();
                 }
             }
