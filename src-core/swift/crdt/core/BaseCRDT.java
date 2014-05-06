@@ -123,6 +123,14 @@ public abstract class BaseCRDT<V extends BaseCRDT<V>> implements CRDT<V> {
     public CausalityClock getClock() {
         return clock;
     }
+    
+    @Override
+    /**
+     * Must be overridden if the CRDT supports partial replicas
+     */
+    public V mergeSameVersion(V other) {
+        return other;
+    }
 
     @Override
     public V copyWith(TxnHandle txnHandle, CausalityClock clock) {

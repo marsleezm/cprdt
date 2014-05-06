@@ -71,6 +71,19 @@ public interface CRDT<V extends CRDT<V>> extends Copyable {
      *         object is associated with a transaction handle; otherwise null
      */
     CausalityClock getClock();
+    
+    /**
+     * <b>INTERNAL, SYSTEM USE.</b>
+     * 
+     * Merge this part of CRDT with another part on the same version
+     * Only used when at least one of the CRDT is not a full replica
+     * The parts can be overlapping, 
+     * the overlapping parts have an equivalent state since it's the same version
+     * 
+     * @param other
+     * @return Reference to the merged CRDT (need not be a copy)
+     */
+    V mergeSameVersion(V other);
 
     @Override
     public V copy();

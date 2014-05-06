@@ -95,7 +95,10 @@ class SnapshotIsolationTxnHandle extends AbstractTxnHandle implements TxnHandle 
     protected <V extends CRDT<V>> V getImpl(CRDTIdentifier id, boolean create, Class<V> classOfV,
             ObjectUpdatesListener updatesListener, CRDTShardQuery<V> query) throws WrongTypeException, NoSuchObjectException,
             VersionNotFoundException, NetworkException {
-        CRDT<V> localView = (CRDT<V>) objectViewsCache.get(id);
+        CRDT<V> localView = null;
+        if (query == null) {
+            localView = (CRDT<V>) objectViewsCache.get(id);
+        }
         if (localView != null && updatesListener != null) {
             // force another read to install the listener and discard it
             manager.getObjectVersionTxnView(this, id, localView.getClock(), create, classOfV, updatesListener, query);
@@ -103,7 +106,9 @@ class SnapshotIsolationTxnHandle extends AbstractTxnHandle implements TxnHandle 
         if (localView == null) {
             localView = manager.getObjectVersionTxnView(this, id, getUpdatesDependencyClock(), create, classOfV,
                     updatesListener, query);
-            objectViewsCache.put(id, localView);
+            if (query == null) {
+                objectViewsCache.put(id, localView);
+            }
         }
         return (V) localView;
     }
