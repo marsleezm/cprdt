@@ -83,7 +83,7 @@ public interface CRDT<V extends CRDT<V>> extends Copyable {
      * @param other
      * @return Reference to the merged CRDT (need not be a copy)
      */
-    V mergeSameVersion(V other);
+    V mergeSameVersion(Shard<V> myShard, V other, Shard<V> otherShard);
 
     @Override
     public V copy();

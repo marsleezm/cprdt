@@ -260,6 +260,29 @@ public class ManagedCRDT<V extends CRDT<V>> implements Copyable {
             throw new IllegalArgumentException("Refusing to merge two objects with different identities: " + id
                     + " vs " + other.id);
         }
+        
+        if (!(this.shard instanceof ShardFull && other.shard instanceof ShardFull)) {
+            // Need to merge the shards at checkpoint
+            
+            // First get the checkpoints to a common version
+            switch (pruneClock.compareTo(other.pruneClock)) {
+            case CMP_DOMINATES:
+            case CMP_EQUALS:
+                other.prune(this.pruneClock, true);
+                break;
+            case CMP_ISDOMINATED:
+                this.prune(other.pruneClock, true);
+                break;
+            case CMP_CONCURRENT:
+                throw new IllegalStateException(
+                      "Unsupported attempt to merge partial objects with concurrent pruning point clocks");
+            }
+            
+            // Merge these pruning points
+            V newCommentCheckpoint = this.checkpoint.mergeSameVersion(this.getShard(), other.checkpoint, other.getShard());
+            this.checkpoint = newCommentCheckpoint;
+            other.checkpoint = newCommentCheckpoint;
+        }
 
         // This is a somewhat messy best-effort logic, since merge is not
         // exactly symmetric for op-based.
@@ -268,9 +291,6 @@ public class ManagedCRDT<V extends CRDT<V>> implements Copyable {
         switch (getClock().compareTo(other.getClock())) {
         case CMP_DOMINATES:
         case CMP_EQUALS:
-            if (!other.getShard().isSubsetOf(this.getShard())) {
-                throw new IllegalStateException("Unsupported attempt to merge objects with incompatible shards (dominates, equals)");
-            }
             // Easy case, not much to do.
             // Heuristic: resolve a potential difference in pruning point in
             // favor of "this" over "other".
@@ -285,9 +305,6 @@ public class ManagedCRDT<V extends CRDT<V>> implements Copyable {
             }
             break;
         case CMP_ISDOMINATED:
-            if (!this.getShard().isSubsetOf(other.getShard())) {
-                throw new IllegalStateException("Unsupported attempt to merge objects with incompatible shards (dominated)");
-            }
             // The exact opposite of the above case.
             this.checkpoint = other.checkpoint.copy();
             this.pruneClock = other.pruneClock.clone();
@@ -315,10 +332,6 @@ public class ManagedCRDT<V extends CRDT<V>> implements Copyable {
             if (!pruneClock.compareTo(other.clock).is(CMP_CLOCK.CMP_ISDOMINATED, CMP_CLOCK.CMP_EQUALS)) {
                 throw new IllegalStateException(
                         "Unsupported attempt to merge objects with concurrent clocks and a clock concurrent to pruning point");
-            }
-            
-            if (!this.getShard().isSubsetOf(other.getShard())) {
-                throw new IllegalStateException("Unsupported attempt to merge objects with incompatible shards (concurrent)");
             }
             
             this.checkpoint = other.checkpoint;

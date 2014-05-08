@@ -128,7 +128,7 @@ public abstract class BaseCRDT<V extends BaseCRDT<V>> implements CRDT<V> {
     /**
      * Must be overridden if the CRDT supports partial replicas
      */
-    public V mergeSameVersion(V other) {
+    public V mergeSameVersion(Shard<V> myShard, V other, Shard<V> otherShard) {
         return other;
     }
 
