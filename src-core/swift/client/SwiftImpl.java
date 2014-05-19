@@ -981,21 +981,16 @@ public class SwiftImpl implements SwiftScout, TxnManager, FailOverHandler {
             ManagedCRDT<V> cacheCRDT;
             try {
                 if (txn != null) {
-                    cacheCRDT = (ManagedCRDT<V>) objectsCache.getAndTouch(request.getUid(), request.getQuery());
+                    cacheCRDT = (ManagedCRDT<V>) objectsCache.getAndTouch(request.getUid());
                 } else {
-                    cacheCRDT = (ManagedCRDT<V>) objectsCache.getWithoutTouch(request.getUid(), request.getQuery());
+                    cacheCRDT = (ManagedCRDT<V>) objectsCache.getWithoutTouch(request.getUid());
                 }
             } catch (Exception e) {
                 throw new WrongTypeException(e.getMessage());
             }
 
-            if (cacheCRDT == null
-                    || crdt.getClock().compareTo(cacheCRDT.getClock())
-                            .is(CMP_CLOCK.CMP_DOMINATES, CMP_CLOCK.CMP_EQUALS)) {
-                // If clock >= cacheCrdt.clock, it 1) does not make sense to
-                // merge, 2) received version may have different pruneClock,
-                // which could be either helpful or not depending on the case.
-                objectsCache.add(crdt, request.getQuery(), txn == null ? -1L : txn.serial);
+            if (cacheCRDT == null) {
+                objectsCache.add(crdt, txn == null ? -1L : txn.serial);
                 cacheCRDT = crdt;
             } else {
                 try {
@@ -1004,7 +999,7 @@ public class SwiftImpl implements SwiftScout, TxnManager, FailOverHandler {
                     logger.warning("Merging incoming object version " + crdt.getClock() + " with the cached version "
                             + cacheCRDT.getClock() + " has failed with our heuristic - dropping cached version" + x);
                     cacheCRDT = crdt;
-                    objectsCache.add(crdt, request.getQuery(), txn == null ? -1L : txn.serial);
+                    objectsCache.add(crdt, txn == null ? -1L : txn.serial);
                 }
             }
             // Apply any local updates that may not be present in received
@@ -1046,13 +1041,6 @@ public class SwiftImpl implements SwiftScout, TxnManager, FailOverHandler {
         }
         return true;
     }
-
-    @SuppressWarnings({ "unchecked", "rawtypes" })
-    private void applyLocalObjectUpdates(List<ManagedCRDT<?>> crdts, final AbstractTxnHandle localTxn) {
-        for (ManagedCRDT crdt: crdts) {
-            applyLocalObjectUpdates(crdt, localTxn);
-        }
-    }
     
     @SuppressWarnings({ "unchecked", "rawtypes" })
     private void applyLocalObjectUpdates(ManagedCRDT<?> crdt, final AbstractTxnHandle localTxn) {
@@ -1092,9 +1080,9 @@ public class SwiftImpl implements SwiftScout, TxnManager, FailOverHandler {
         }
         
         // TODO: handle queries
-        final List<ManagedCRDT<?>> crdts = objectsCache.getAllWithoutTouch(id);
+        final ManagedCRDT crdt = objectsCache.getWithoutTouch(id);
 
-        if (crdts.size() == 0) {
+        if (crdt == null) {
             // Ooops, we evicted the object from the cache.
             logger.info("cannot apply received updates on object " + id + " evicted from the cache; re-fetching");
             if (sessionsSubs != null) {
@@ -1112,50 +1100,48 @@ public class SwiftImpl implements SwiftScout, TxnManager, FailOverHandler {
             return;
         }
         
-        for (ManagedCRDT crdt: crdts) {
-            if (crdt.getClock().compareTo(dependencyClock).is(CMP_CLOCK.CMP_ISDOMINATED, CMP_CLOCK.CMP_CONCURRENT)) {
-                // Ooops, we missed some update or messages were ordered.
-                logger.info("cannot apply received updates on object " + id + " due to unsatisfied dependencies");
-                if (sessionsSubs != null && !ops.isEmpty()) {
-                    asyncFetchAndSubscribeObjectUpdates(id);
-                }
-                return;
+        if (crdt.getClock().compareTo(dependencyClock).is(CMP_CLOCK.CMP_ISDOMINATED, CMP_CLOCK.CMP_CONCURRENT)) {
+            // Ooops, we missed some update or messages were ordered.
+            logger.info("cannot apply received updates on object " + id + " due to unsatisfied dependencies");
+            if (sessionsSubs != null && !ops.isEmpty()) {
+                asyncFetchAndSubscribeObjectUpdates(id);
             }
-    
-            if (logger.isLoggable(Level.INFO)) {
-                // TODO: printf usage wouldn't hurt :-)
-                // logger.info("applying received updates on object " + id +
-                // ";num.ops=" + ops.size() + ";tx="
-                // + (ops.size() == 0 ? "-" :
-                // ops.get(0).getTimestampMapping().getSelectedSystemTimestamp())
-                // + ";clttx=" + (ops.size() == 0 ? "-" :
-                // ops.get(0).getTimestamps()[0]) + ";vv=" + outputClock
-                // + ";dep=" + dependencyClock);
-            }
-    
-            for (final CRDTObjectUpdatesGroup<?> op : ops) {
-                final boolean newUpdate = crdt.execute(op, CRDTOperationDependencyPolicy.RECORD_BLINDLY);
-                final String updatesScoutId = op.getClientTimestamp().getIdentifier();
-                if (!updatesScoutId.equals(scoutId)) {
-                    crdt.discardScoutClock(updatesScoutId);
-                }
-                if (!newUpdate) {
-                    if (logger.isLoggable(Level.INFO)) {
-                        logger.info("update " + op.getClientTimestamp() + " was already included in the state of object "
-                                + id);
-                    }
-                    // Already applied update.
-                    continue;
-                }
-                if (sessionsSubs != null) {
-                    for (final UpdateSubscriptionWithListener subscription : sessionsSubs.values()) {
-                        handleObjectUpdatesTryNotify(id, subscription, op.getTimestampMapping());
-                    }
-                }
-            }
-            crdt.augmentWithDCClockWithoutMappings(outputClock);
-            crdt.prune(update.getPruneClock(), true);
+            return;
         }
+
+        if (logger.isLoggable(Level.INFO)) {
+            // TODO: printf usage wouldn't hurt :-)
+            // logger.info("applying received updates on object " + id +
+            // ";num.ops=" + ops.size() + ";tx="
+            // + (ops.size() == 0 ? "-" :
+            // ops.get(0).getTimestampMapping().getSelectedSystemTimestamp())
+            // + ";clttx=" + (ops.size() == 0 ? "-" :
+            // ops.get(0).getTimestamps()[0]) + ";vv=" + outputClock
+            // + ";dep=" + dependencyClock);
+        }
+
+        for (final CRDTObjectUpdatesGroup<?> op : ops) {
+            final boolean newUpdate = crdt.execute(op, CRDTOperationDependencyPolicy.RECORD_BLINDLY);
+            final String updatesScoutId = op.getClientTimestamp().getIdentifier();
+            if (!updatesScoutId.equals(scoutId)) {
+                crdt.discardScoutClock(updatesScoutId);
+            }
+            if (!newUpdate) {
+                if (logger.isLoggable(Level.INFO)) {
+                    logger.info("update " + op.getClientTimestamp() + " was already included in the state of object "
+                            + id);
+                }
+                // Already applied update.
+                continue;
+            }
+            if (sessionsSubs != null) {
+                for (final UpdateSubscriptionWithListener subscription : sessionsSubs.values()) {
+                    handleObjectUpdatesTryNotify(id, subscription, op.getTimestampMapping());
+                }
+            }
+        }
+        crdt.augmentWithDCClockWithoutMappings(outputClock);
+        crdt.prune(update.getPruneClock(), true);
     }
 
     private synchronized void handleObjectUpdatesTryNotify(CRDTIdentifier id,
@@ -1380,7 +1366,7 @@ public class SwiftImpl implements SwiftScout, TxnManager, FailOverHandler {
             lastLocallyCommittedTxnClock.record(txn.getClientTimestamp());
             for (final CRDTObjectUpdatesGroup opsGroup : txn.getAllUpdates()) {
                 final CRDTIdentifier id = opsGroup.getTargetUID();
-                applyLocalObjectUpdates(objectsCache.getAllWithoutTouch(id), txn);
+                applyLocalObjectUpdates(objectsCache.getWithoutTouch(id), txn);
                 // Look if there is any other session to notify.
                 final Map<String, UpdateSubscriptionWithListener> sessionsSubs = objectSessionsUpdateSubscriptions
                         .get(id);
@@ -1498,7 +1484,7 @@ public class SwiftImpl implements SwiftScout, TxnManager, FailOverHandler {
                     }
                     // Record new mappings for updated objects.
                     for (final CRDTObjectUpdatesGroup update : txn.getAllUpdates()) {
-                        applyLocalObjectUpdates(objectsCache.getAllWithoutTouch(update.getTargetUID()), txn);
+                        applyLocalObjectUpdates(objectsCache.getWithoutTouch(update.getTargetUID()), txn);
                     }
                     // Advance clock of all objects.
                     objectsCache.augmentAllWithDCCausalClockWithoutMappings(systemTxnClock);
