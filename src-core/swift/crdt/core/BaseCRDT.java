@@ -16,10 +16,17 @@
  *****************************************************************************/
 package swift.crdt.core;
 
+import java.util.Set;
+
 import swift.clocks.CausalityClock;
 import swift.clocks.TripleTimestamp;
+import swift.cprdt.core.CRDTShardQuery;
 import swift.cprdt.core.Shard;
 import swift.cprdt.core.ShardFull;
+import swift.exceptions.NetworkException;
+import swift.exceptions.NoSuchObjectException;
+import swift.exceptions.VersionNotFoundException;
+import swift.exceptions.WrongTypeException;
 
 /**
  * Base class for operation-based CRDT objects.
@@ -52,6 +59,8 @@ public abstract class BaseCRDT<V extends BaseCRDT<V>> implements CRDT<V> {
     protected TxnHandle txn;
     // version of the object (can be null)
     protected CausalityClock clock;
+    
+    protected Shard shard;
 
     /**
      * Kryo empty constructor, DO NOT USE for purposes other than serialization.
@@ -88,6 +97,7 @@ public abstract class BaseCRDT<V extends BaseCRDT<V>> implements CRDT<V> {
         this.id = id;
         this.txn = txn;
         this.clock = clock;
+        this.shard = Shard.fullShard;
     }
     
     @Override
@@ -125,11 +135,43 @@ public abstract class BaseCRDT<V extends BaseCRDT<V>> implements CRDT<V> {
     }
     
     @Override
+    public void setClock(CausalityClock clock) {
+        if (this.clock != null) {
+            throw new IllegalStateException("Trying to change the clock of a CRDT");
+        }
+        this.clock = clock;
+    }
+    
+    public Shard getShard() {
+        return shard;
+    }
+    public void setShard(Shard shard) {
+        this.shard = shard;
+    }
+    
+    @Override
+    public void fetch(Set<?> particles) throws WrongTypeException, NoSuchObjectException, VersionNotFoundException, NetworkException {
+        this.getTxnHandle().fetch(this.getUID(), this.getClass(), particles);
+    }
+    @Override
+    public void fetch(CRDTShardQuery<V> query) throws WrongTypeException, NoSuchObjectException, VersionNotFoundException, NetworkException {
+        this.getTxnHandle().fetch(this.getUID(), (Class<V>) this.getClass(), query);
+    }
+    
+    @Override
     /**
      * Must be overridden if the CRDT supports partial replicas
      */
-    public V mergeSameVersion(Shard<V> myShard, V other, Shard<V> otherShard) {
+    public V mergeSameVersion(V other) {
         return other;
+    }
+    
+    @Override
+    /**
+     * Must be overridden for the CRDT to support partial replicas
+     */
+    public V copyFraction(Set<?> particles) {
+        return this.copy();
     }
 
     @Override

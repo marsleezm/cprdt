@@ -17,9 +17,9 @@
 package swift.crdt;
 
 import swift.clocks.TripleTimestamp;
-import swift.crdt.core.CRDTUpdate;
+import swift.crdt.core.AbstractCRDTUpdate;
 
-public class GetOwnershipUpdate implements CRDTUpdate<SharedLockCRDT> {
+public class GetOwnershipUpdate extends AbstractCRDTUpdate<SharedLockCRDT> {
 
     private String requesterId;
     private LockType type;
@@ -72,6 +72,12 @@ public class GetOwnershipUpdate implements CRDTUpdate<SharedLockCRDT> {
 
     public String getParentId() {
         return parentId;
+    }
+
+    @Override
+    public Object getValueWithoutMetadata() {
+        // TODO Auto-generated method stub
+        return null;
     }
 
 }

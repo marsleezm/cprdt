@@ -125,10 +125,9 @@ public interface TxnHandle {
     
     /**
      * See {@link #get(CRDTIdentifier, boolean, Class, ObjectUpdatesListener)}
-     * with an added query to request only a part of the CRDT
+     * with an added lazy modifier to build up the CRDT on operations
      */
-    <V extends CRDT<V>> V get(CRDTIdentifier id, boolean create, Class<V> classOfV,
-            final ObjectUpdatesListener updatesListener, CRDTShardQuery<V> query) throws WrongTypeException, NoSuchObjectException,
+    <V extends CRDT<V>> V get(CRDTIdentifier id, boolean create, Class<V> classOfV, boolean lazy) throws WrongTypeException, NoSuchObjectException,
             VersionNotFoundException, NetworkException;
 
     /**
@@ -221,4 +220,11 @@ public interface TxnHandle {
      *            initial empty state of an object
      */
     <V extends CRDT<V>> void registerObjectCreation(final CRDTIdentifier id, V creationState);
+
+    <V extends CRDT<V>> void fetch(CRDTIdentifier id, Class<V> classOfV, Set<?> particles) throws WrongTypeException,
+            NoSuchObjectException, VersionNotFoundException, NetworkException;
+    <V extends CRDT<V>> void fetch(CRDTIdentifier id, Class<V> classOfV, CRDTShardQuery<V> query) throws WrongTypeException,
+    NoSuchObjectException, VersionNotFoundException, NetworkException;
+    <V extends CRDT<V>> void fetch(CRDTIdentifier id, Class<V> classOfV, CRDTShardQuery<V> query, ObjectUpdatesListener listener) throws WrongTypeException,
+    NoSuchObjectException, VersionNotFoundException, NetworkException;
 }

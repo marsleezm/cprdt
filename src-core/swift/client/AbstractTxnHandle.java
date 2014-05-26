@@ -16,6 +16,7 @@
  *****************************************************************************/
 package swift.client;
 
+import java.lang.reflect.Constructor;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -23,6 +24,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -33,6 +35,7 @@ import swift.clocks.IncrementalTripleTimestampGenerator;
 import swift.clocks.Timestamp;
 import swift.clocks.TimestampMapping;
 import swift.clocks.TripleTimestamp;
+import swift.cprdt.FractionShardQuery;
 import swift.cprdt.core.CRDTShardQuery;
 import swift.crdt.core.BulkGetProgressListener;
 import swift.crdt.core.CRDT;
@@ -72,7 +75,7 @@ import sys.utils.Threading;
  * A transaction is first locally committed with a client timestamp, and then
  * globally committed with a stable system timestamp assigned by server to
  * facilitate efficient timestamps summary. The mapping between these timestamps
- * is defined within a TimestamMapping object of the transaction.
+ * is defined within a TimestampMapping object of the transaction.
  * <p>
  * This base implementation primarily keeps track of transaction states and
  * updates on objects.
@@ -92,6 +95,8 @@ abstract class AbstractTxnHandle implements TxnHandle, Comparable<AbstractTxnHan
     protected final CausalityClock updatesDependencyClock;
     protected final IncrementalTripleTimestampGenerator timestampSource;
     protected final Map<CRDTIdentifier, CRDTObjectUpdatesGroup<?>> localObjectOperations;
+    // Operations that might need to be applied on the additional parts we fetch
+    protected final Map<CRDTIdentifier, CRDTObjectUpdatesGroup<?>> notFullyAppliedOperations;
     protected TxnStatus status;
     protected CommitListener commitListener;
     protected final Map<CRDT<?>, ObjectUpdatesListener> objectUpdatesListeners;
@@ -105,6 +110,10 @@ abstract class AbstractTxnHandle implements TxnHandle, Comparable<AbstractTxnHan
     private CounterSignalSource unstableCommitCountStats;
     private ValueSignalSource unstableCommitDurationStats;
     private Stopper unstableGlocalCron;
+
+    final protected Map<CRDTIdentifier, CRDT<?>> objectViewsCache;
+    final protected Map<CRDTIdentifier, Set<CRDTShardQuery<?>>> objectQueriesCache;
+    final protected Set<CRDTIdentifier> toCreate;
 
     /**
      * Creates an update transaction.
@@ -135,9 +144,15 @@ abstract class AbstractTxnHandle implements TxnHandle, Comparable<AbstractTxnHan
         this.updatesDependencyClock = ClockFactory.newClock();
         this.timestampSource = new IncrementalTripleTimestampGenerator(timestampMapping.getClientTimestamp());
         this.localObjectOperations = new HashMap<CRDTIdentifier, CRDTObjectUpdatesGroup<?>>();
+        this.notFullyAppliedOperations = new HashMap<CRDTIdentifier, CRDTObjectUpdatesGroup<?>>();
         this.status = TxnStatus.PENDING;
         this.objectUpdatesListeners = new HashMap<CRDT<?>, ObjectUpdatesListener>();
         this.serial = serialGenerator.getAndIncrement();
+        
+        this.objectViewsCache = new ConcurrentHashMap<CRDTIdentifier, CRDT<?>>();
+        this.objectQueriesCache = new HashMap<CRDTIdentifier, Set<CRDTShardQuery<?>>>();
+        this.toCreate = Collections.emptySet();
+        
         initStats(stats);
     }
 
@@ -166,8 +181,13 @@ abstract class AbstractTxnHandle implements TxnHandle, Comparable<AbstractTxnHan
         this.updatesDependencyClock = ClockFactory.newClock();
         this.timestampSource = null;
         this.localObjectOperations = new HashMap<CRDTIdentifier, CRDTObjectUpdatesGroup<?>>();
+        this.notFullyAppliedOperations = new HashMap<CRDTIdentifier, CRDTObjectUpdatesGroup<?>>();
         this.status = TxnStatus.PENDING;
         this.objectUpdatesListeners = new HashMap<CRDT<?>, ObjectUpdatesListener>();
+
+        this.objectViewsCache = new ConcurrentHashMap<CRDTIdentifier, CRDT<?>>();
+        this.objectQueriesCache = new HashMap<CRDTIdentifier, Set<CRDTShardQuery<?>>>();
+        this.toCreate = Collections.newSetFromMap(new ConcurrentHashMap<CRDTIdentifier, Boolean>());
 
         this.serial = serialGenerator.getAndIncrement();
         initStats(stats);
@@ -184,21 +204,98 @@ abstract class AbstractTxnHandle implements TxnHandle, Comparable<AbstractTxnHan
     public <V extends CRDT<V>> V get(CRDTIdentifier id, boolean create, Class<V> classOfV,
             ObjectUpdatesListener listener) throws WrongTypeException, NoSuchObjectException, VersionNotFoundException,
             NetworkException {
-        return get(id, create, classOfV, null, null);
+        return get(id, create, classOfV, listener, false);
     }
-    
+
     @Override
     @SuppressWarnings("unchecked")
-    public <V extends CRDT<V>> V get(CRDTIdentifier id, boolean create, Class<V> classOfV,
-            ObjectUpdatesListener listener, CRDTShardQuery<V> query) throws WrongTypeException, NoSuchObjectException, VersionNotFoundException,
-            NetworkException {
+    public <V extends CRDT<V>> V get(CRDTIdentifier id, boolean create, Class<V> classOfV, boolean lazy)
+            throws WrongTypeException, NoSuchObjectException, VersionNotFoundException, NetworkException {
+        return get(id, create, classOfV, null, lazy);
+    }
+
+    @SuppressWarnings("unchecked")
+    private <V extends CRDT<V>> V get(CRDTIdentifier id, boolean create, Class<V> classOfV,
+            ObjectUpdatesListener listener, boolean lazy) throws WrongTypeException, NoSuchObjectException,
+            VersionNotFoundException, NetworkException {
         assertStatus(TxnStatus.PENDING);
         try {
             if (SwiftImpl.DEFAULT_LISTENER_FOR_GET && listener == null)
                 listener = SwiftImpl.DEFAULT_LISTENER;
-            return getImpl(id, create, classOfV, listener, query);
+            
+            if (create) {
+                // We assume the client won't do a get(create) then a get(!create)
+                toCreate.add(id);
+            }
+            
+            CRDT<V> localView = (CRDT<V>) objectViewsCache.get(id);
+            if (lazy) {
+                if (localView != null) {
+                    return (V) localView;
+                }
+                localView = getEmptyView(id, classOfV);
+                objectViewsCache.put(id, localView);
+                return (V) localView;
+            }
+            
+            return getImpl(id, create, classOfV, listener, null);
         } catch (ClassCastException x) {
             throw new WrongTypeException(x.getMessage());
+        }
+    }
+    
+    @Override
+    public <V extends CRDT<V>> void fetch(CRDTIdentifier id, Class<V> classOfV, Set<?> particles) throws WrongTypeException, NoSuchObjectException, VersionNotFoundException, NetworkException {
+        fetch(id, classOfV, new FractionShardQuery<V>(particles), null);
+    }
+
+    public <V extends CRDT<V>> void fetch(CRDTIdentifier id, Class<V> classOfV, CRDTShardQuery<V> query)
+            throws WrongTypeException, NoSuchObjectException, VersionNotFoundException, NetworkException {
+        fetch(id, classOfV, query, null);
+    }
+
+    public <V extends CRDT<V>> void fetch(CRDTIdentifier id, Class<V> classOfV, CRDTShardQuery<V> query,
+            ObjectUpdatesListener updatesListener) throws WrongTypeException, NoSuchObjectException,
+            VersionNotFoundException, NetworkException {
+        V localView = (V) this.objectViewsCache.get(id);
+        if (query != null) {
+            if (query.isAvailableIn(localView.getShard())) {
+                // No need to fetch anything, we already have it
+                return;
+            }
+            // Check the previously made queries
+            Set<CRDTShardQuery<?>> cachedQueries = objectQueriesCache.get(id);
+            if (cachedQueries != null) {
+                for (CRDTShardQuery<?> cachedQuery: cachedQueries) {
+                    if (query.isSubqueryOf((CRDTShardQuery<V>) cachedQuery)) {
+                        return;
+                    }
+                }
+            }
+        } else {
+            if (localView.getShard().isFull()) {
+                return;
+            }
+        }
+        getImpl(id, toCreate.contains(id), classOfV, updatesListener, query);
+        if (!query.isAvailableIn(localView.getShard())) {
+            // We cache the query to know we already did it
+            // (only if it's a complex query that can't be compared with the shard)
+            Set<CRDTShardQuery<?>> queries = objectQueriesCache.get(id);
+            if (queries == null) {
+                queries = new HashSet<CRDTShardQuery<?>>();
+                objectQueriesCache.put(id, queries);
+            }
+            queries.add(query);
+        }
+    }
+
+    protected <V extends CRDT<V>> void updateWithNotFullyAppliedOperations(CRDTIdentifier id, V localView) {
+        @SuppressWarnings("unchecked")
+        CRDTObjectUpdatesGroup<V> toApplyOperationsGroup = (CRDTObjectUpdatesGroup<V>) notFullyAppliedOperations
+                .get(id);
+        if (toApplyOperationsGroup != null) {
+            toApplyOperationsGroup.applyAndRemove(localView);
         }
     }
 
@@ -258,6 +355,23 @@ abstract class AbstractTxnHandle implements TxnHandle, Comparable<AbstractTxnHan
         }
         operationsGroup.append(op);
         durableLog.writeEntry(getId(), op);
+
+        V localView = (V) this.objectViewsCache.get(id);
+        if (localView == null || !localView.getShard().containsAll(op.affectedParticles())) {
+            // This operation affects some particles that are not in the local
+            // view
+            // It needs to be applied to the affected particles if they are
+            // requested later
+            @SuppressWarnings("unchecked")
+            CRDTObjectUpdatesGroup<V> toApplyOperationsGroup = (CRDTObjectUpdatesGroup<V>) notFullyAppliedOperations
+                    .get(id);
+            if (toApplyOperationsGroup == null) {
+                toApplyOperationsGroup = new CRDTObjectUpdatesGroup<V>(id, getTimestampMapping(), null,
+                        getUpdatesDependencyClock());
+                notFullyAppliedOperations.put(id, toApplyOperationsGroup);
+            }
+            toApplyOperationsGroup.append(op);
+        }
     }
 
     @Override
@@ -370,6 +484,17 @@ abstract class AbstractTxnHandle implements TxnHandle, Comparable<AbstractTxnHan
         return sessionId;
     }
 
+    protected <V extends CRDT<V>> V getEmptyView(CRDTIdentifier id, Class<V> classOfV) throws WrongTypeException {
+        final V emptyView;
+        try {
+            final Constructor<V> constructor = classOfV.getConstructor(CRDTIdentifier.class);
+            emptyView = constructor.newInstance(id, this, null);
+        } catch (Exception e) {
+            throw new WrongTypeException(e.getMessage());
+        }
+        return emptyView;
+    }
+
     /**
      * Implementation of read request, can use {@link #manager} for that
      * purposes. Implementation is responsible for maintaining dependency clock
@@ -378,8 +503,8 @@ abstract class AbstractTxnHandle implements TxnHandle, Comparable<AbstractTxnHan
      * depends on every version read by the transaction.
      */
     protected abstract <V extends CRDT<V>> V getImpl(CRDTIdentifier id, boolean create, Class<V> classOfV,
-            ObjectUpdatesListener updatesListener, CRDTShardQuery<V> query) throws WrongTypeException, NoSuchObjectException,
-            VersionNotFoundException, NetworkException;
+            ObjectUpdatesListener updatesListener, CRDTShardQuery<V> query) throws WrongTypeException,
+            NoSuchObjectException, VersionNotFoundException, NetworkException;
 
     /**
      * Updates dependency clock of the transaction.

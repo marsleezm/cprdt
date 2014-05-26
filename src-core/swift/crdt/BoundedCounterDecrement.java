@@ -1,8 +1,8 @@
 package swift.crdt;
 
-import swift.crdt.core.CRDTUpdate;
+import swift.crdt.core.AbstractCRDTUpdate;
 
-public class BoundedCounterDecrement<T extends BoundedCounterCRDT<T>> implements CRDTUpdate<T> {
+public class BoundedCounterDecrement<T extends BoundedCounterCRDT<T>> extends AbstractCRDTUpdate<T> {
 
     private int amount;
     private String siteId;
@@ -37,4 +37,9 @@ public class BoundedCounterDecrement<T extends BoundedCounterCRDT<T>> implements
         this.siteId = siteId;
     }
 
+    @Override
+    public Object getValueWithoutMetadata() {
+        // TODO Auto-generated method stub
+        return null;
+    }
 }

@@ -1,8 +1,8 @@
 package swift.crdt;
 
-import swift.crdt.core.CRDTUpdate;
+import swift.crdt.core.AbstractCRDTUpdate;
 
-public class AddOnlySetUpdate<V> implements CRDTUpdate<AddOnlySetCRDT<V>> {
+public class AddOnlySetUpdate<V> extends AbstractCRDTUpdate<AddOnlySetCRDT<V>> {
     private V element;
 
     // Kryo
@@ -16,5 +16,10 @@ public class AddOnlySetUpdate<V> implements CRDTUpdate<AddOnlySetCRDT<V>> {
     @Override
     public void applyTo(AddOnlySetCRDT<V> crdt) {
         crdt.applyAdd(element);
+    }
+
+    @Override
+    public Object getValueWithoutMetadata() {
+        return element;
     }
 }

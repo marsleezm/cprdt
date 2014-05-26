@@ -193,9 +193,12 @@ public interface CausalityClock extends Serializable, Copyable {
     CausalityClock clone();
 
     /**
-     * Test if version vector has exceptions or holes.
-     * 
-     * @return true if there are exceptions
+     * @return number of exceptions or holes (discontiguity intervals)
      */
-    boolean hasExceptions();
+    int getExceptionsNumber();
+
+    // CausalityClock retain(String siteId);
+    //
+    // CausalityClock retain(CausalityClock cc);
+
 }

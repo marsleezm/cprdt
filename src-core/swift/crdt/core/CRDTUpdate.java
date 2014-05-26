@@ -16,6 +16,8 @@
  *****************************************************************************/
 package swift.crdt.core;
 
+import java.util.Set;
+
 /**
  * Basic interface for representing an update operation on a CRDT. Immutable.
  * 
@@ -29,4 +31,24 @@ public interface CRDTUpdate<V extends CRDT<V>> {
      *            object where operation is applied
      */
     void applyTo(V crdt);
+    
+    /**
+     * 
+     * @return Set of particles of the CRDT needed to apply this update
+     *  or null if a full CRDT is needed
+     */
+    Set<Object> requiredParticles();
+    /**
+     * 
+     * @return Set of particles of the CRDT this update can affect (might change its state)
+     *  or null if the complete CRDT is affected
+     */
+    Set<Object> affectedParticles();
+
+    /**
+     * @return estimated size of pure "value" in the update, as opposed to
+     *         metadata; for PERFORMANCE MEASUREMENTS purposes only, return null
+     *         if in doubt
+     */
+    Object getValueWithoutMetadata();
 }

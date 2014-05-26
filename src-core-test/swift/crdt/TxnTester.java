@@ -31,6 +31,7 @@ import swift.clocks.Timestamp;
 import swift.clocks.TimestampMapping;
 import swift.clocks.TimestampSource;
 import swift.clocks.TripleTimestamp;
+import swift.cprdt.FractionShardQuery;
 import swift.cprdt.core.CRDTShardQuery;
 import swift.crdt.core.BulkGetProgressListener;
 import swift.crdt.core.CRDT;
@@ -128,6 +129,7 @@ public class TxnTester implements TxnHandle {
     protected <V extends CRDT<V>> ManagedCRDT<V> getOrCreateVersionedCRDT(CRDTIdentifier id, Class<V> classOfV,
             boolean create) throws InstantiationException, IllegalAccessException, InvocationTargetException,
             NoSuchMethodException, NoSuchObjectException {
+        @SuppressWarnings("unchecked")
         ManagedCRDT<V> managedCRDT = (ManagedCRDT<V>) objects.get(id);
         if (managedCRDT == null) {
             if (!create) {
@@ -207,9 +209,29 @@ public class TxnTester implements TxnHandle {
 
     @Override
     public <V extends CRDT<V>> V get(CRDTIdentifier id, boolean create, Class<V> classOfV,
-            ObjectUpdatesListener updatesListener, CRDTShardQuery<V> query) throws WrongTypeException,
+            boolean lazy) throws WrongTypeException,
             NoSuchObjectException, VersionNotFoundException, NetworkException {
-        return get(id, create, classOfV, updatesListener);
+        return get(id, create, classOfV, null);
+    }
+
+    @Override
+    public <V extends CRDT<V>> void fetch(CRDTIdentifier id, Class<V> classOfV, Set<?> particles)
+            throws WrongTypeException, NoSuchObjectException, VersionNotFoundException, NetworkException {
+        fetch(id, classOfV, new FractionShardQuery<V>(particles));
+    }
+
+    @Override
+    public <V extends CRDT<V>> void fetch(CRDTIdentifier id, Class<V> classOfV, CRDTShardQuery<V> query)
+            throws WrongTypeException, NoSuchObjectException, VersionNotFoundException, NetworkException {
+        fetch(id, classOfV, query, null);
+    }
+
+    @Override
+    public <V extends CRDT<V>> void fetch(CRDTIdentifier id, Class<V> classOfV, CRDTShardQuery<V> query,
+            ObjectUpdatesListener listener) throws WrongTypeException, NoSuchObjectException, VersionNotFoundException,
+            NetworkException {
+        // TODO
+        throw new UnsupportedOperationException();
     }
 
 }

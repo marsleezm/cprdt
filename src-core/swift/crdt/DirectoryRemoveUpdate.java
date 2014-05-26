@@ -20,9 +20,9 @@ import java.util.Set;
 
 import swift.clocks.TripleTimestamp;
 import swift.crdt.core.CRDTIdentifier;
-import swift.crdt.core.CRDTUpdate;
+import swift.crdt.core.AbstractCRDTUpdate;
 
-public class DirectoryRemoveUpdate implements CRDTUpdate<DirectoryCRDT> {
+public class DirectoryRemoveUpdate extends AbstractCRDTUpdate<DirectoryCRDT> {
     private Set<TripleTimestamp> toBeRemoved;
     private CRDTIdentifier key;
 
@@ -38,6 +38,11 @@ public class DirectoryRemoveUpdate implements CRDTUpdate<DirectoryCRDT> {
     @Override
     public void applyTo(DirectoryCRDT crdt) {
         crdt.applyRemove(key, toBeRemoved);
+    }
+
+    @Override
+    public Object getValueWithoutMetadata() {
+        return key;
     }
 
 }

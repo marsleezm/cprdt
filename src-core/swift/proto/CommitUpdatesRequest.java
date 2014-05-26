@@ -50,12 +50,16 @@ public class CommitUpdatesRequest extends ClientRequest {
     CommitUpdatesRequest() {
     }
 
-    public CommitUpdatesRequest(String clientId, final Timestamp cltTimestamp, final CausalityClock dependencyClock,
-            List<CRDTObjectUpdatesGroup<?>> objectUpdateGroups) {
-        super(clientId);
+    public CommitUpdatesRequest(String clientId, boolean disasterSafeSession, final Timestamp cltTimestamp,
+            final CausalityClock dependencyClock, List<CRDTObjectUpdatesGroup<?>> objectUpdateGroups) {
+        super(clientId, disasterSafeSession);
         this.cltTimestamp = cltTimestamp;
         this.dependencyClock = dependencyClock;
         this.objectUpdateGroups = new ArrayList<CRDTObjectUpdatesGroup<?>>(objectUpdateGroups);
+    }
+
+    public CausalityClock getDependencyClock() {
+        return dependencyClock;
     }
 
     /**
@@ -120,5 +124,15 @@ public class CommitUpdatesRequest extends ClientRequest {
                 this.dependencyClock.record(t);
             }
         }
+    }
+
+    @Override
+    public String toString() {
+        return "CommitUpdatesRequest [objectUpdateGroups=" + objectUpdateGroups + ", dependencyClock="
+                + dependencyClock + ", cltTimestamp=" + cltTimestamp + "]";
+    }
+
+    public void dropInternalDependency() {
+        dependencyClock.drop(clientId);
     }
 }

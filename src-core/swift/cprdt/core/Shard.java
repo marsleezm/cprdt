@@ -15,23 +15,106 @@
  *****************************************************************************/
 package swift.cprdt.core;
 
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.Set;
-
-import swift.crdt.core.CRDT;
 
 /**
  * Definition of the particles present in a partial CRDT. Immutable
  * 
  * @author Iwan Briquemont
  */
-public interface Shard<V extends CRDT<V>> {
-    public boolean contains(Object particle);
+public class Shard {
+    private boolean isFull;
+    private Set<Object> particles;
     
-    public boolean containsAll(Set<?> particles);
+    // TODO add interval and properties support
+    
+    public static final Shard fullShard = new Shard(true);
+    public static final Shard hollowShard = new Shard();
+    
+    public Shard() {
+        this(false);
+    }
+    
+    public Shard(boolean isFull) {
+        this(isFull, (Set<Object>)Collections.EMPTY_SET);
+    }
+    
+    public Shard(Set<Object> particles) {
+        this(false, particles);
+    }
+    
+    private Shard(boolean isFull, Set<Object> particles) {
+        this.isFull = isFull;
+        this.particles = particles;
+    }
+    
+    public boolean isFull() {
+        return isFull;
+    }
+    
+    public boolean isHollow() {
+        return !isFull && this.particles.size() == 0;
+    }
+    
+    public boolean contains(Object particle) {
+        if (isFull) {
+            return true;
+        }
+        return particles.contains(particle);
+    }
+    
+    public boolean containsAll(Set<?> particles) {
+        if (isFull) {
+            return true;
+        }
+        if (particles == null) {
+            // null is considered to be the full set
+            return false;
+        }
+        return particles.containsAll(particles);
+    }
+    
+    public boolean containsAny(Set<?> particles) {
+        if (isHollow()) {
+            return false;
+        }
+        if (particles == null) {
+            // null is considered to be the full set
+            return true;
+        }
+        if (particles.size() != 0 && isFull()) {
+            return true;
+        }
+        for (Object particle: particles) {
+            if (contains(particle)) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    public Shard union(Shard other) {
+        if (this.isFull() || other.isHollow()) {
+            return this;
+        }
+        if (other.isFull() || this.isHollow()) {
+            return other;
+        }
+        Set<Object> union = new HashSet<Object>(this.particles);
+        union.addAll(other.particles);
+        return new Shard(union);
+    }
     
     /**
      * @return true if this shard is a (non strict) subset of the other
      * false if it is not or if they cannot be compared
      */
-    public boolean isSubsetOf(Shard<V> other);
+    public boolean isSubsetOf(Shard other) {
+        if (other.isFull) {
+            return true;
+        }
+        return other.containsAll(particles);
+    }
 }

@@ -16,9 +16,6 @@
  *****************************************************************************/
 package swift.client;
 
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-
 import swift.clocks.TimestampMapping;
 import swift.cprdt.core.CRDTShardQuery;
 import swift.crdt.core.CRDT;
@@ -44,7 +41,6 @@ import sys.stats.Stats;
  * @author mzawirski
  */
 class RepeatableReadsTxnHandle extends AbstractTxnHandle {
-    final Map<CRDTIdentifier, CRDT<?>> objectViewsCache;
 
     /**
      * Creates update transaction.
@@ -63,9 +59,7 @@ class RepeatableReadsTxnHandle extends AbstractTxnHandle {
      */
     RepeatableReadsTxnHandle(final TxnManager manager, final String sessionId, final TransactionsLog durableLog,
             final CachePolicy cachePolicy, final TimestampMapping timestampMapping, Stats stats) {
-        super(manager, sessionId, durableLog, IsolationLevel.REPEATABLE_READS, cachePolicy, timestampMapping,
-                stats);
-        this.objectViewsCache = new ConcurrentHashMap<CRDTIdentifier, CRDT<?>>();
+        super(manager, sessionId, durableLog, IsolationLevel.REPEATABLE_READS, cachePolicy, timestampMapping, stats);
     }
 
     /**
@@ -81,22 +75,37 @@ class RepeatableReadsTxnHandle extends AbstractTxnHandle {
     RepeatableReadsTxnHandle(final TxnManager manager, final String sessionId, final CachePolicy cachePolicy,
             Stats stats) {
         super(manager, sessionId, IsolationLevel.REPEATABLE_READS, cachePolicy, stats);
-        this.objectViewsCache = new ConcurrentHashMap<CRDTIdentifier, CRDT<?>>();
     }
 
     @Override
     protected <V extends CRDT<V>> V getImpl(CRDTIdentifier id, boolean create, Class<V> classOfV,
             ObjectUpdatesListener updatesListener, CRDTShardQuery<V> query) throws WrongTypeException, NoSuchObjectException,
             VersionNotFoundException, NetworkException {
-        // TODO: caching with queries
         CRDT<V> localView = (CRDT<V>) objectViewsCache.get(id);
-        if (localView != null && updatesListener != null) {
-            // force another read to install the listener and discard it
-            manager.getObjectVersionTxnView(this, id, localView.getClock(), create, classOfV, updatesListener, query);
+        if (localView != null && localView.getClock() != null) {
+            if (query != null && !query.isAvailableIn(localView.getShard())) {
+                // Need to fetch the queried parts
+                CRDT<V> extendedLocalView = manager.getObjectVersionTxnView(this, id, localView.getClock(), create, classOfV, updatesListener, query);
+                updateWithNotFullyAppliedOperations(id, (V)extendedLocalView);
+                localView.mergeSameVersion((V) extendedLocalView);
+            } else {
+                if (updatesListener != null) {
+                    manager.getObjectVersionTxnView(this, id, localView.getClock(), create, classOfV, updatesListener, query);
+                }
+            }
         }
-        if (localView == null) {
-            localView = manager.getObjectLatestVersionTxnView(this, id, cachePolicy, create, classOfV, updatesListener, query);
-            objectViewsCache.put(id, localView);
+        if (localView == null || localView.getClock() == null) {
+            CRDT<V> newLocalView = manager.getObjectLatestVersionTxnView(this, id, cachePolicy, create, classOfV, updatesListener, null);
+            if (localView == null) {
+                localView = newLocalView;
+                objectViewsCache.put(id, localView);
+            } else {
+                // There is no clock installed on the CRDT view
+                // It was lazily loaded
+                localView.setClock(newLocalView.getClock());
+                updateWithNotFullyAppliedOperations(id, (V)newLocalView);
+                localView.mergeSameVersion((V) newLocalView);
+            }
             updateUpdatesDependencyClock(localView.getClock());
         }
         return (V) localView;

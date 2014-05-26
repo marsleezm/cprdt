@@ -19,9 +19,9 @@ package swift.crdt;
 import java.util.Set;
 
 import swift.clocks.TripleTimestamp;
-import swift.crdt.core.CRDTUpdate;
+import swift.crdt.core.AbstractCRDTUpdate;
 
-public class AddWinsSetRemoveUpdate<V, T extends AbstractAddWinsSetCRDT<V, T>> implements CRDTUpdate<T> {
+public class AddWinsSetRemoveUpdate<V, T extends AbstractAddWinsSetCRDT<V, T>> extends AbstractCRDTUpdate<T> {
     private V val;
     // WISHME: represent it more efficiently using vectors if possible.
     // That would require some substantial API chances, since it's not as easy
@@ -49,5 +49,10 @@ public class AddWinsSetRemoveUpdate<V, T extends AbstractAddWinsSetCRDT<V, T>> i
     @Override
     public void applyTo(T crdt) {
         crdt.applyRemove(val, removedInstances);
+    }
+
+    @Override
+    public Object getValueWithoutMetadata() {
+        return val;
     }
 }

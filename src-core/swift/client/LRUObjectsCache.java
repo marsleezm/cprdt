@@ -29,7 +29,6 @@ import java.util.logging.Logger;
 
 import swift.clocks.CausalityClock;
 import swift.clocks.Timestamp;
-import swift.cprdt.core.CRDTShardQuery;
 import swift.crdt.core.CRDTIdentifier;
 import swift.crdt.core.ManagedCRDT;
 
@@ -112,10 +111,11 @@ class LRUObjectsCache {
     synchronized public void add(final ManagedCRDT<?> object, long txnSerial) {
         if (txnSerial >= 0)
             evictionProtections.add(txnSerial);
-        
+
         Entry e = new Entry(object, txnSerial);
         entries.put(object.getUID(), e);
         shadowEntries.put(object.getUID(), e);
+
     }
 
     /**
@@ -125,14 +125,6 @@ class LRUObjectsCache {
      *            object id
      * @return object or null if object is absent in the cache
      */
-    synchronized public ManagedCRDT<?> getAndTouch(final CRDTIdentifier id, CRDTShardQuery<?> query) {
-        final Entry entry = entries.get(id);
-        if (entry == null) {
-            return null;
-        }
-        entry.touch();
-        return entry.getObject();
-    }
     synchronized public ManagedCRDT<?> getAndTouch(final CRDTIdentifier id) {
         final Entry entry = entries.get(id);
         if (entry == null) {
@@ -150,11 +142,6 @@ class LRUObjectsCache {
      *            object id
      * @return object or null if object is absent in the cache
      */
-    synchronized public ManagedCRDT<?> getWithoutTouch(final CRDTIdentifier id, CRDTShardQuery<?> query) {
-        final Entry entry = shadowEntries.get(id);
-        return entry == null ? null : entry.getObject();
-    }
-    
     synchronized public ManagedCRDT<?> getWithoutTouch(final CRDTIdentifier id) {
         final Entry entry = shadowEntries.get(id);
         return entry == null ? null : entry.getObject();
@@ -224,6 +211,18 @@ class LRUObjectsCache {
             entry.object.augmentWithDCClockWithoutMappings(causalClock);
         }
     }
+    
+
+    synchronized void pruneAll(CausalityClock nextPruneClock) {
+        for (final Entry entry : entries.values()) {
+            try {
+                entry.object.prune(nextPruneClock, true);
+            } catch (IllegalStateException x) {
+                logger.warning("Unsafe pruning attempt in the cache: " + x.getMessage());
+            }
+        }
+    }
+
 
     synchronized void augmentAllWithScoutTimestampWithoutMappings(Timestamp clientTimestamp) {
         for (final Entry entry : entries.values()) {

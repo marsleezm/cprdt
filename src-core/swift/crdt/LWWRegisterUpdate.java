@@ -17,9 +17,9 @@
 package swift.crdt;
 
 import swift.clocks.TripleTimestamp;
-import swift.crdt.core.CRDTUpdate;
+import swift.crdt.core.AbstractCRDTUpdate;
 
-public class LWWRegisterUpdate<V> implements CRDTUpdate<LWWRegisterCRDT<V>> {
+public class LWWRegisterUpdate<V> extends AbstractCRDTUpdate<LWWRegisterCRDT<V>> {
     protected V val;
     protected long registerTimestamp;
     protected TripleTimestamp tiebreakingTimestamp;
@@ -41,5 +41,10 @@ public class LWWRegisterUpdate<V> implements CRDTUpdate<LWWRegisterCRDT<V>> {
     @Override
     public void applyTo(LWWRegisterCRDT<V> register) {
         register.applySet(registerTimestamp, tiebreakingTimestamp, val);
+    }
+
+    @Override
+    public Object getValueWithoutMetadata() {
+        return val;
     }
 }

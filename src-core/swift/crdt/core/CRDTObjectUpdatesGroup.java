@@ -24,6 +24,7 @@ import swift.clocks.CausalityClock;
 import swift.clocks.CausalityClock.CMP_CLOCK;
 import swift.clocks.Timestamp;
 import swift.clocks.TimestampMapping;
+import swift.cprdt.core.Shard;
 
 /**
  * Representation of an atomic sequence of update operations on an object.
@@ -38,7 +39,7 @@ import swift.clocks.TimestampMapping;
  * <p>
  * TODO: document life-cycle of mappings and dependencyClock references
  * (optimization hacks in {@link #strippedWithCopiedTimestampMappings()} and
- * {@link #withDependencyClock(CausalityClock)})
+ * {@link #withGlobalDependencyClock(CausalityClock)})
  * 
  * @author mzawirsk
  */
@@ -187,9 +188,35 @@ public class CRDTObjectUpdatesGroup<V extends CRDT<V>> {
      *            object where operations are applied
      */
     public void applyTo(V crdt) {
+        Shard shard = crdt.getShard();
         for (final CRDTUpdate<V> u : operations) {
-            u.applyTo(crdt);
+            if (shard.containsAny(u.affectedParticles())) {
+                u.applyTo(crdt);
+            }
         }
+    }
+    
+    /**
+     * Applies all operations in order to the given object instance.
+     * Remove the operations which are fully applied 
+     * (for which all the affected particles are present in the CRDT)
+     * 
+     * @param crdt
+     *            object where operations are applied
+     */
+    public void applyAndRemove(V crdt) {
+        Shard shard = crdt.getShard();
+        LinkedList<CRDTUpdate<V>> toRemove = new LinkedList<CRDTUpdate<V>>();
+        for (final CRDTUpdate<V> u : operations) {
+            if (shard.containsAny(u.affectedParticles())) {
+                u.applyTo(crdt);
+                if (shard.containsAll(u.affectedParticles())) {
+                    toRemove.add(u);
+                }
+            }
+        }
+        
+        operations.removeAll(toRemove);
     }
 
     /**
@@ -217,6 +244,14 @@ public class CRDTObjectUpdatesGroup<V extends CRDT<V>> {
             throw new IllegalArgumentException("new dependency clock is concurrent or lower than the old one");
         }
         return new CRDTObjectUpdatesGroup<V>(id, timestampMapping, operations, creationState, newDependencyClock);
+    }
+
+    /**
+     * @param newId
+     * @return shallow copy of the object id set to another one.
+     */
+    public CRDTObjectUpdatesGroup<V> withId(CRDTIdentifier newId) {
+        return new CRDTObjectUpdatesGroup<V>(newId, timestampMapping, operations, creationState, dependencyClock);
     }
 
     /**

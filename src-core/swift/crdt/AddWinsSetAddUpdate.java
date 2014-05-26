@@ -19,9 +19,9 @@ package swift.crdt;
 import java.util.Set;
 
 import swift.clocks.TripleTimestamp;
-import swift.crdt.core.CRDTUpdate;
+import swift.crdt.core.AbstractCRDTUpdate;
 
-public class AddWinsSetAddUpdate<V, T extends AbstractAddWinsSetCRDT<V, T>> implements CRDTUpdate<T> {
+public class AddWinsSetAddUpdate<V, T extends AbstractAddWinsSetCRDT<V, T>> extends AbstractCRDTUpdate<T> {
     protected V val;
     protected TripleTimestamp instance;
     // WISHME: represent it more efficiently using vectors if possible.
@@ -47,5 +47,10 @@ public class AddWinsSetAddUpdate<V, T extends AbstractAddWinsSetCRDT<V, T>> impl
     @Override
     public void applyTo(T crdt) {
         crdt.applyAdd(val, instance, overwrittenAdds);
+    }
+
+    @Override
+    public Object getValueWithoutMetadata() {
+        return val;
     }
 }

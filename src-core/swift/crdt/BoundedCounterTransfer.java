@@ -1,8 +1,8 @@
 package swift.crdt;
 
-import swift.crdt.core.CRDTUpdate;
+import swift.crdt.core.AbstractCRDTUpdate;
 
-public class BoundedCounterTransfer<T extends BoundedCounterCRDT<T>> implements CRDTUpdate<T> {
+public class BoundedCounterTransfer<T extends BoundedCounterCRDT<T>> extends AbstractCRDTUpdate<T> {
 
     private String originId, targetId;
     private int amount;
@@ -45,6 +45,12 @@ public class BoundedCounterTransfer<T extends BoundedCounterCRDT<T>> implements 
 
     protected void setAmount(int amount) {
         this.amount = amount;
+    }
+
+    @Override
+    public Object getValueWithoutMetadata() {
+        // TODO Auto-generated method stub
+        return null;
     }
 
 }

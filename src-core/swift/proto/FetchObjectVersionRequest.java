@@ -22,22 +22,27 @@ import swift.crdt.core.CRDTIdentifier;
 import sys.net.api.rpc.RpcHandle;
 import sys.net.api.rpc.RpcHandler;
 
+import com.esotericsoftware.kryo.Kryo;
+import com.esotericsoftware.kryo.io.Output;
+
 /**
  * Client request to fetch a particular version of an object.
  * 
  * @author mzawirski
  */
-public class FetchObjectVersionRequest extends ClientRequest {
+public class FetchObjectVersionRequest extends ClientRequest implements MetadataSamplable {
     protected CRDTIdentifier uid;
+    // TODO: could be derived from client's session?
     protected CausalityClock version;
-    // Optional query to get only a part of the CRDT
-    protected CRDTShardQuery<?> query;
+    
+    protected CRDTShardQuery query;
+    
     // FIXME: make these things optional? Used only by evaluation.
-    protected CausalityClock clock;
-    protected CausalityClock disasterDurableClock;
+    // protected CausalityClock clock;
+    // protected CausalityClock disasterDurableClock;
     protected boolean strictUnprunedVersion;
-
     protected boolean subscribe;
+    protected boolean sendDCVector;
 
     public long timestamp = sys.Sys.Sys.timeMillis(); // FOR EVALUATION, TO BE
                                                       // REMOVED...
@@ -48,27 +53,32 @@ public class FetchObjectVersionRequest extends ClientRequest {
     FetchObjectVersionRequest() {
     }
 
-    public FetchObjectVersionRequest(String clientId, CRDTIdentifier uid, CausalityClock version, CRDTShardQuery<?> query,
-            final boolean strictUnprunedVersion, boolean subscribe) {
-        super(clientId);
+    public FetchObjectVersionRequest(String clientId, boolean disasterSafe, CRDTIdentifier uid, CausalityClock version,
+            final boolean strictUnprunedVersion, boolean subscribe, boolean sendDCVersion) {
+        super(clientId, disasterSafe);
         this.uid = uid;
         this.version = version;
-        this.query = query;
         this.subscribe = subscribe;
         this.strictUnprunedVersion = strictUnprunedVersion;
+        this.sendDCVector = sendDCVersion;
     }
 
-    public FetchObjectVersionRequest(String clientId, CRDTIdentifier uid, CausalityClock version, CRDTShardQuery<?> query,
-            final boolean strictUnprunedVersion, CausalityClock clock, CausalityClock disasterDurableClock,
-            boolean subscribe) {
-        super(clientId);
-        this.uid = uid;
-        this.clock = clock;
-        this.version = version;
-        this.query = query;
-        this.subscribe = subscribe;
-        this.strictUnprunedVersion = strictUnprunedVersion;
-        this.disasterDurableClock = disasterDurableClock;
+    // public FetchObjectVersionRequest(String clientId, CRDTIdentifier uid,
+    // CausalityClock version,
+    // final boolean strictUnprunedVersion, CausalityClock clock, CausalityClock
+    // disasterDurableClock,
+    // boolean subscribe) {
+    // super(clientId);
+    // this.uid = uid;
+    // this.clock = clock;
+    // this.version = version;
+    // this.subscribe = subscribe;
+    // this.strictUnprunedVersion = strictUnprunedVersion;
+    // this.disasterDurableClock = disasterDurableClock;
+    // }
+
+    public boolean isSendDCVector() {
+        return sendDCVector;
     }
 
     public boolean hasSubscription() {
@@ -89,7 +99,11 @@ public class FetchObjectVersionRequest extends ClientRequest {
         return version;
     }
     
-    public CRDTShardQuery<?> getQuery() {
+    public boolean hasQuery() {
+        return query != null;
+    }
+    
+    public CRDTShardQuery getQuery() {
         return query;
     }
 
@@ -111,7 +125,8 @@ public class FetchObjectVersionRequest extends ClientRequest {
      *         candidate
      */
     public CausalityClock getClock() {
-        return clock;
+        return null;
+        // return clock;
     }
 
     /**
@@ -120,6 +135,20 @@ public class FetchObjectVersionRequest extends ClientRequest {
      *         of the store
      */
     public CausalityClock getDistasterDurableClock() {
-        return disasterDurableClock;
+        return null;
+        // return disasterDurableClock;
+    }
+
+    @Override
+    public void recordMetadataSample(MetadataStatsCollector collector) {
+        if (!collector.isEnabled()) {
+            return;
+        }
+        final Kryo kryo = collector.getFreshKryo();
+        final Output buffer = collector.getFreshKryoBuffer();
+
+        // TODO: capture from the wire, rather than recompute here
+        kryo.writeObject(buffer, this);
+        collector.recordStats(this, buffer.position(), 0, 0, 1, version.getExceptionsNumber());
     }
 }

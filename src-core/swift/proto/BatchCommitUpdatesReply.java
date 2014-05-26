@@ -23,6 +23,9 @@ import sys.net.api.rpc.RpcHandle;
 import sys.net.api.rpc.RpcHandler;
 import sys.net.api.rpc.RpcMessage;
 
+import com.esotericsoftware.kryo.Kryo;
+import com.esotericsoftware.kryo.io.Output;
+
 /**
  * Server confirmation for a batch of committed updates, with information on
  * status and used timestamp.
@@ -31,7 +34,7 @@ import sys.net.api.rpc.RpcMessage;
  * @see BatchCommitUpdatesRequest
  * @see CommitUpdatesReply
  */
-public class BatchCommitUpdatesReply implements RpcMessage {
+public class BatchCommitUpdatesReply implements RpcMessage, MetadataSamplable {
     protected List<CommitUpdatesReply> replies;
 
     /**
@@ -60,5 +63,25 @@ public class BatchCommitUpdatesReply implements RpcMessage {
     @Override
     public void deliverTo(RpcHandle conn, RpcHandler handler) {
         // ((SwiftProtocolHandler) handler).onReceive(conn, this);
+    }
+
+    @Override
+    public void recordMetadataSample(MetadataStatsCollector collector) {
+        if (!collector.isEnabled()) {
+            return;
+        }
+        final Kryo kryo = collector.getFreshKryo();
+        final Output buffer = collector.getFreshKryoBuffer();
+
+        int maxExceptionsNum = 0;
+        for (final CommitUpdatesReply reply : getReplies()) {
+            if (reply.getImpreciseCommitClock() != null) {
+                maxExceptionsNum = Math.max(reply.getImpreciseCommitClock().getExceptionsNumber(), maxExceptionsNum);
+            }
+        }
+
+        // TODO: capture from the wire, rather than recompute here
+        kryo.writeObject(buffer, this);
+        collector.recordStats(this, buffer.position(), 0, 0, getReplies().size(), maxExceptionsNum);
     }
 }

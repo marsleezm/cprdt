@@ -16,8 +16,15 @@
  *****************************************************************************/
 package swift.crdt.core;
 
+import java.util.Set;
+
 import swift.clocks.CausalityClock;
+import swift.cprdt.core.CRDTShardQuery;
 import swift.cprdt.core.Shard;
+import swift.exceptions.NetworkException;
+import swift.exceptions.NoSuchObjectException;
+import swift.exceptions.VersionNotFoundException;
+import swift.exceptions.WrongTypeException;
 
 // WISHME: separate client and system interface
 // TODO: Extend interface to offer optional buffering of transaction's updates (e.g. to aggregate increments, assignments etc.)
@@ -75,15 +82,36 @@ public interface CRDT<V extends CRDT<V>> extends Copyable {
     /**
      * <b>INTERNAL, SYSTEM USE.</b>
      * 
+     * Set the clock, only used by the TxnHandle to allow lazy loading of the CRDT
+     */
+    void setClock(CausalityClock clock);
+    
+    Shard getShard();
+    void setShard(Shard shard);
+    
+    /**
+     * <b>INTERNAL, SYSTEM USE.</b>
+     * 
      * Merge this part of CRDT with another part on the same version
-     * Only used when at least one of the CRDT is not a full replica
-     * The parts can be overlapping, 
-     * the overlapping parts have an equivalent state since it's the same version
+     * This replica can have non-committed changes so in case of overlapping
+     * the parts of this must be chosen over the parts of other
+     * Only used when at least one of the CRDTs is not a full replica
      * 
      * @param other
-     * @return Reference to the merged CRDT (need not be a copy)
+     * @return Reference to the merged CRDT (need not be a copy) with an updated Shard definition
      */
-    V mergeSameVersion(Shard<V> myShard, V other, Shard<V> otherShard);
+    V mergeSameVersion(V other);
+    
+    public void fetch(Set<?> particles) throws WrongTypeException, NoSuchObjectException, VersionNotFoundException, NetworkException;
+    public void fetch(CRDTShardQuery<V> query) throws WrongTypeException, NoSuchObjectException, VersionNotFoundException, NetworkException;
+    
+    /**
+     * Make a partial copy of the CRDT
+     * 
+     * @param particles
+     * @return
+     */
+    public V copyFraction(Set<?> particles);
 
     @Override
     public V copy();

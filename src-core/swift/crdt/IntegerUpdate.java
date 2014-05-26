@@ -16,9 +16,9 @@
  *****************************************************************************/
 package swift.crdt;
 
-import swift.crdt.core.CRDTUpdate;
+import swift.crdt.core.AbstractCRDTUpdate;
 
-public class IntegerUpdate implements CRDTUpdate<IntegerCRDT> {
+public class IntegerUpdate extends AbstractCRDTUpdate<IntegerCRDT> {
     protected int delta;
 
     // required for kryo
@@ -36,5 +36,10 @@ public class IntegerUpdate implements CRDTUpdate<IntegerCRDT> {
     @Override
     public void applyTo(IntegerCRDT crdt) {
         crdt.applyAdd(delta);
+    }
+
+    @Override
+    public Object getValueWithoutMetadata() {
+        return delta;
     }
 }

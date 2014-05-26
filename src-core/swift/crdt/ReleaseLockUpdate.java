@@ -1,8 +1,8 @@
 package swift.crdt;
 
-import swift.crdt.core.CRDTUpdate;
+import swift.crdt.core.AbstractCRDTUpdate;
 
-public class ReleaseLockUpdate implements CRDTUpdate<SharedLockCRDT> {
+public class ReleaseLockUpdate extends AbstractCRDTUpdate<SharedLockCRDT> {
 
     private String ownerId;
     private LockType type;
@@ -31,6 +31,12 @@ public class ReleaseLockUpdate implements CRDTUpdate<SharedLockCRDT> {
 
     protected void setType(LockType type) {
         this.type = type;
+    }
+
+    @Override
+    public Object getValueWithoutMetadata() {
+        // TODO Auto-generated method stub
+        return null;
     }
 
 }

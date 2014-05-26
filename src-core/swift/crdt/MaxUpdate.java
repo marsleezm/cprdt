@@ -1,8 +1,8 @@
 package swift.crdt;
 
-import swift.crdt.core.CRDTUpdate;
+import swift.crdt.core.AbstractCRDTUpdate;
 
-public class MaxUpdate<V extends Comparable<V>> implements CRDTUpdate<MaxCRDT<V>> {
+public class MaxUpdate<V extends Comparable<V>> extends AbstractCRDTUpdate<MaxCRDT<V>> {
     V value;
 
     public MaxUpdate(V value) {
@@ -12,5 +12,10 @@ public class MaxUpdate<V extends Comparable<V>> implements CRDTUpdate<MaxCRDT<V>
     @Override
     public void applyTo(MaxCRDT<V> crdt) {
         crdt.applySet(value);
+    }
+
+    @Override
+    public Object getValueWithoutMetadata() {
+        return value;
     }
 }

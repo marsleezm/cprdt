@@ -20,9 +20,9 @@ import java.util.Set;
 
 import swift.clocks.TripleTimestamp;
 import swift.crdt.core.CRDTIdentifier;
-import swift.crdt.core.CRDTUpdate;
+import swift.crdt.core.AbstractCRDTUpdate;
 
-public class DirectoryCreateUpdate implements CRDTUpdate<DirectoryCRDT> {
+public class DirectoryCreateUpdate extends AbstractCRDTUpdate<DirectoryCRDT> {
     protected CRDTIdentifier entry;
     protected TripleTimestamp ts;
     private Set<TripleTimestamp> overwrittenTimestamps;
@@ -41,5 +41,10 @@ public class DirectoryCreateUpdate implements CRDTUpdate<DirectoryCRDT> {
     @Override
     public void applyTo(DirectoryCRDT crdt) {
         crdt.applyCreate(entry, ts, overwrittenTimestamps);
+    }
+
+    @Override
+    public Object getValueWithoutMetadata() {
+        return entry;
     }
 }

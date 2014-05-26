@@ -20,9 +20,9 @@ import java.util.Set;
 
 import swift.clocks.TripleTimestamp;
 import swift.crdt.SequenceCRDT.PosID;
-import swift.crdt.core.CRDTUpdate;
+import swift.crdt.core.AbstractCRDTUpdate;
 
-public class SequenceInsertUpdate<V extends Comparable<V>> implements CRDTUpdate<SequenceCRDT<V>> {
+public class SequenceInsertUpdate<V extends Comparable<V>> extends AbstractCRDTUpdate<SequenceCRDT<V>> {
     protected PosID<V> posId;
     protected TripleTimestamp ts;
     protected Set<TripleTimestamp> overwrittenInstances;
@@ -40,5 +40,11 @@ public class SequenceInsertUpdate<V extends Comparable<V>> implements CRDTUpdate
     @Override
     public void applyTo(SequenceCRDT<V> crdt) {
         crdt.applyAdd(posId, ts, overwrittenInstances);
+    }
+
+    @Override
+    public Object getValueWithoutMetadata() {
+        // TODO Auto-generated method stub
+        return null;
     }
 }

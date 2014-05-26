@@ -24,8 +24,9 @@ public interface CRDTShardQuery<V extends CRDT<V>> {
      * @param crdtVersion The version the query should run against
      * @param crdtPruneVersion Can be an older version than the one the query should run against
      * @return A copy of the crdtPruneVersion CRDT restricted to the query
+     *          and with its associated shard correctly defined
      */
-    CRDTShardQueryResult<V> executeAt(V crdtVersion, V crdtPruneVersion);
+    V executeAt(V crdtVersion, V crdtPruneVersion);
 
     /**
      * 
@@ -36,9 +37,11 @@ public interface CRDTShardQuery<V extends CRDT<V>> {
 
     /**
      * 
-     * @param crdtShardQuery
-     * @return True if this is more specific than the other False if it is not
-     *         or if it unknown
+     * @param shard
+     * @return True if this query can be applied on the given shard of the CRDT
+     *         false if it cannot or if it is unknown
      */
-    boolean isSubqueryOf(Shard<V> shard, CRDTShardQuery<V> crdtShardQuery);
+    boolean isAvailableIn(Shard shard);
+    
+    boolean isSubqueryOf(CRDTShardQuery<V> other);
 }

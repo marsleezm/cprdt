@@ -20,9 +20,9 @@ import java.util.Set;
 
 import swift.clocks.TripleTimestamp;
 import swift.crdt.SequenceCRDT.PosID;
-import swift.crdt.core.CRDTUpdate;
+import swift.crdt.core.AbstractCRDTUpdate;
 
-public class SequenceRemoveUpdate<V extends Comparable<V>> implements CRDTUpdate<SequenceCRDT<V>> {
+public class SequenceRemoveUpdate<V extends Comparable<V>> extends AbstractCRDTUpdate<SequenceCRDT<V>> {
     protected Set<TripleTimestamp> ids;
     protected PosID<V> posId;
 

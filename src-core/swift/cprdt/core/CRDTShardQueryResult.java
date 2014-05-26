@@ -18,15 +18,15 @@ package swift.cprdt.core;
 import swift.crdt.core.CRDT;
 
 public class CRDTShardQueryResult<V extends CRDT<V>> {
-    protected Shard<V> shard;
+    protected Shard shard;
     protected V crdt;
     
-    public CRDTShardQueryResult(Shard<V> shard, V crdt) {
+    public CRDTShardQueryResult(Shard shard, V crdt) {
         this.shard = shard;
         this.crdt = crdt;
     }
     
-    public Shard<V> getShard() {
+    public Shard getShard() {
         return shard;
     }
     

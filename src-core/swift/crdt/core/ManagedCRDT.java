@@ -28,9 +28,7 @@ import swift.clocks.ClockFactory;
 import swift.clocks.Timestamp;
 import swift.clocks.TimestampMapping;
 import swift.cprdt.core.CRDTShardQuery;
-import swift.cprdt.core.CRDTShardQueryResult;
 import swift.cprdt.core.Shard;
-import swift.cprdt.core.ShardFull;
 
 /**
  * Generic manager of an operation-based CRDT implementation V that provides
@@ -50,7 +48,8 @@ import swift.cprdt.core.ShardFull;
  * @param <V>
  *            type of operation-based CRDT
  */
-public class ManagedCRDT<V extends CRDT<V>> implements Copyable {
+public class ManagedCRDT<V extends CRDT<V>> {
+    // TODO: make costly assertion checks optional.
     private static final long serialVersionUID = 1L;
 
     private static <V extends CRDT<V>> Map<Timestamp, CRDTObjectUpdatesGroup<V>> getTimestampToUpdatesMap(
@@ -79,8 +78,6 @@ public class ManagedCRDT<V extends CRDT<V>> implements Copyable {
     // unnecessary information (dependency clocks and ids)
     protected List<CRDTObjectUpdatesGroup<V>> strippedLog;
     
-    protected Shard<V> shard;
-
     public ManagedCRDT() {
     }
 
@@ -108,7 +105,6 @@ public class ManagedCRDT<V extends CRDT<V>> implements Copyable {
         this.clock = clock;
         this.pruneClock = ClockFactory.newClock();
         this.registeredInStore = registeredInStore;
-        this.shard = new ShardFull<V>();
     }
 
     /**
@@ -208,17 +204,14 @@ public class ManagedCRDT<V extends CRDT<V>> implements Copyable {
      * merged into the clock of an object if checkVersionClock is disabled.
      * 
      * @param pruningPoint
-     *            clock up to which data clean-up is performed; without
-     *            exceptions
+     *            clock that represents updates to clean-up for versioning
+     *            purposes (merged with existing pruningPoint)
      * @param checkVersionClock
      *            when true, pruningPoint is checked against {@link #getClock()}
-     * @throws IllegalStateException
-     *             when the provided clock is not greater than or equal to the
-     *             existing pruning point
      * @throws IllegalArgumentException
-     *             provided clock has disallowed exceptions or checkVersionClock
-     *             has been specified and {@link #getClock()} is concurrent or
-     *             dominated by pruningPoint
+     *             provided checkVersionClock has been specified and
+     *             {@link #getClock()} is concurrent or dominated by
+     *             pruningPoint
      */
     public void prune(CausalityClock pruningPoint, boolean checkVersionClock) {
         if (checkVersionClock && clock.compareTo(pruningPoint).is(CMP_CLOCK.CMP_CONCURRENT, CMP_CLOCK.CMP_ISDOMINATED)) {
@@ -248,7 +241,7 @@ public class ManagedCRDT<V extends CRDT<V>> implements Copyable {
      * invariants.
      * <p>
      * IMPLEMENTATION ASSUMPTION: the incoming crdt pruneClock may miss scout's
-     * local timestamps, but not the clock should not miss them.
+     * local timestamps, but the clock should not miss them.
      * 
      * @param crdt
      *            object state to merge with; unmodified
@@ -261,7 +254,7 @@ public class ManagedCRDT<V extends CRDT<V>> implements Copyable {
                     + " vs " + other.id);
         }
         
-        if (!(this.shard instanceof ShardFull && other.shard instanceof ShardFull)) {
+        if (!(this.getShard().isFull() && other.getShard().isFull())) {
             // Need to merge the shards at checkpoint
             
             // First get the checkpoints to a common version
@@ -279,9 +272,9 @@ public class ManagedCRDT<V extends CRDT<V>> implements Copyable {
             }
             
             // Merge these pruning points
-            V newCommentCheckpoint = this.checkpoint.mergeSameVersion(this.getShard(), other.checkpoint, other.getShard());
-            this.checkpoint = newCommentCheckpoint;
-            other.checkpoint = newCommentCheckpoint;
+            V newCommonCheckpoint = this.checkpoint.mergeSameVersion(other.checkpoint);
+            this.checkpoint = newCommonCheckpoint;
+            other.checkpoint = newCommonCheckpoint;
         }
 
         // This is a somewhat messy best-effort logic, since merge is not
@@ -428,8 +421,8 @@ public class ManagedCRDT<V extends CRDT<V>> implements Copyable {
     /**
      * @return associated shard: which part of the CRDT is available in that replica
      */
-    public Shard<V> getShard() {
-        return shard;
+    public Shard getShard() {
+        return checkpoint.getShard();
     }
     
     /**
@@ -438,9 +431,7 @@ public class ManagedCRDT<V extends CRDT<V>> implements Copyable {
      * @param query
      */
     public void applyShardQuery(CRDTShardQuery<V> query, CausalityClock onVersion) {
-        CRDTShardQueryResult<V> result = query.executeAt(getReadOnlyVersion(onVersion), checkpoint);
-        shard = result.getShard();
-        checkpoint = result.getCrdt();
+        checkpoint = query.executeAt(getReadOnlyVersion(onVersion), checkpoint);
     }
 
     /**
@@ -471,13 +462,18 @@ public class ManagedCRDT<V extends CRDT<V>> implements Copyable {
             // calls getVersion exactly once.
             txn.registerObjectCreation(id, (V) checkpoint.copy());
         }
-
         final V version = (V) checkpoint.copyWith(txn, versionClock.clone());
         for (final CRDTObjectUpdatesGroup<V> updates : strippedLog) {
             if (updates.anyTimestampIncluded(versionClock)) {
                 updates.applyTo(version);
             }
         }
+        // String x = versionClock.toString();
+        // if (x.length() > 300) {
+        // System.err.println(this.getUID() + "   CRDT:    " + this.getClock());
+        // System.err.println("ARG:     " + versionClock);
+        // Thread.dumpStack();
+        // }
         return version;
     }
 
@@ -553,17 +549,30 @@ public class ManagedCRDT<V extends CRDT<V>> implements Copyable {
         return result;
     }
 
-    @Override
-    public ManagedCRDT<V> copy() {
+    /**
+     * @param versioningLowerBound
+     *            events contained in this clock (restricted to object's
+     *            version) won't be available for versioning
+     * @return a deep copy of the object for replication purposes, with
+     *         restricted versioning
+     */
+    public ManagedCRDT<V> copyWithRestrictedVersioning(final CausalityClock versioningLowerBound) {
         final ManagedCRDT<V> result = new ManagedCRDT<V>();
         result.id = id;
         result.clock = clock.clone();
-        result.pruneClock = pruneClock.clone();
+
+        result.pruneClock = versioningLowerBound.clone();
+        result.pruneClock.intersect(result.clock);
+        result.pruneClock.merge(pruneClock);
         result.registeredInStore = registeredInStore;
         result.checkpoint = checkpoint.copy();
         result.strippedLog = new LinkedList<CRDTObjectUpdatesGroup<V>>();
-        for (final CRDTObjectUpdatesGroup<V> u : strippedLog) {
-            result.strippedLog.add(u.strippedWithCopiedTimestampMappings());
+        for (final CRDTObjectUpdatesGroup<V> updates : strippedLog) {
+            if (updates.anyTimestampIncluded(result.pruneClock)) {
+                updates.applyTo(result.checkpoint);
+            } else {
+                result.strippedLog.add(updates.strippedWithCopiedTimestampMappings());
+            }
         }
         return result;
     }

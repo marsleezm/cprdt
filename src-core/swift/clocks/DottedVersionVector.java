@@ -410,9 +410,9 @@ public class DottedVersionVector implements CausalityClock {
     }
 
     @Override
-    public boolean hasExceptions() {
+    public int getExceptionsNumber() {
         // TODO Auto-generated method stub
-        throw new RuntimeException("Method hasExpcetions() in DottedVersionVector is not implemented yet!");
+        throw new RuntimeException("Method getExceptionsNumber() in DottedVersionVector is not implemented yet!");
     }
 
     @Override
@@ -440,4 +440,14 @@ public class DottedVersionVector implements CausalityClock {
     public Object copy() {
         return new DottedVersionVector(this);
     }
+
+    // @Override
+    // public CausalityClock retain(String siteId) {
+    // throw new RuntimeException("Not implemented...");
+    // }
+    //
+    // @Override
+    // public CausalityClock retain(CausalityClock cc) {
+    // throw new RuntimeException("Not implemented...");
+    // }
 }
