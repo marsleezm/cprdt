@@ -36,6 +36,8 @@ import swift.clocks.Timestamp;
 import swift.clocks.TimestampMapping;
 import swift.clocks.TripleTimestamp;
 import swift.cprdt.FractionShardQuery;
+import swift.cprdt.FullShardQuery;
+import swift.cprdt.HollowShardQuery;
 import swift.cprdt.core.CRDTShardQuery;
 import swift.crdt.core.BulkGetProgressListener;
 import swift.crdt.core.CRDT;
@@ -151,7 +153,7 @@ abstract class AbstractTxnHandle implements TxnHandle, Comparable<AbstractTxnHan
         
         this.objectViewsCache = new ConcurrentHashMap<CRDTIdentifier, CRDT<?>>();
         this.objectQueriesCache = new HashMap<CRDTIdentifier, Set<CRDTShardQuery<?>>>();
-        this.toCreate = Collections.emptySet();
+        this.toCreate = Collections.newSetFromMap(new ConcurrentHashMap<CRDTIdentifier, Boolean>());
         
         initStats(stats);
     }
@@ -187,7 +189,7 @@ abstract class AbstractTxnHandle implements TxnHandle, Comparable<AbstractTxnHan
 
         this.objectViewsCache = new ConcurrentHashMap<CRDTIdentifier, CRDT<?>>();
         this.objectQueriesCache = new HashMap<CRDTIdentifier, Set<CRDTShardQuery<?>>>();
-        this.toCreate = Collections.newSetFromMap(new ConcurrentHashMap<CRDTIdentifier, Boolean>());
+        this.toCreate = Collections.emptySet();
 
         this.serial = serialGenerator.getAndIncrement();
         initStats(stats);
@@ -219,65 +221,63 @@ abstract class AbstractTxnHandle implements TxnHandle, Comparable<AbstractTxnHan
             ObjectUpdatesListener listener, boolean lazy) throws WrongTypeException, NoSuchObjectException,
             VersionNotFoundException, NetworkException {
         assertStatus(TxnStatus.PENDING);
+        
+        if (isReadOnly() && create) {
+            throw new IllegalArgumentException("Create is true on a read-only transaction");
+        }
+        
         try {
             if (SwiftImpl.DEFAULT_LISTENER_FOR_GET && listener == null)
                 listener = SwiftImpl.DEFAULT_LISTENER;
             
-            if (create) {
-                // We assume the client won't do a get(create) then a get(!create)
-                toCreate.add(id);
-            }
-            
             CRDT<V> localView = (CRDT<V>) objectViewsCache.get(id);
+            CRDTShardQuery<V> query = new FullShardQuery<V>();
             if (lazy) {
                 if (localView != null) {
                     return (V) localView;
                 }
-                localView = getEmptyView(id, classOfV);
-                objectViewsCache.put(id, localView);
-                return (V) localView;
+                query = new HollowShardQuery<V>();
             }
             
-            return getImpl(id, create, classOfV, listener, null);
+            return getImpl(id, create, classOfV, listener, query);
         } catch (ClassCastException x) {
             throw new WrongTypeException(x.getMessage());
         }
     }
     
     @Override
-    public <V extends CRDT<V>> void fetch(CRDTIdentifier id, Class<V> classOfV, Set<?> particles) throws WrongTypeException, NoSuchObjectException, VersionNotFoundException, NetworkException {
+    public <V extends CRDT<V>> void fetch(CRDTIdentifier id, Class<V> classOfV, Set<?> particles) throws WrongTypeException, VersionNotFoundException, NetworkException {
         fetch(id, classOfV, new FractionShardQuery<V>(particles), null);
     }
 
     public <V extends CRDT<V>> void fetch(CRDTIdentifier id, Class<V> classOfV, CRDTShardQuery<V> query)
-            throws WrongTypeException, NoSuchObjectException, VersionNotFoundException, NetworkException {
+            throws WrongTypeException, VersionNotFoundException, NetworkException {
         fetch(id, classOfV, query, null);
     }
 
     public <V extends CRDT<V>> void fetch(CRDTIdentifier id, Class<V> classOfV, CRDTShardQuery<V> query,
-            ObjectUpdatesListener updatesListener) throws WrongTypeException, NoSuchObjectException,
+            ObjectUpdatesListener updatesListener) throws WrongTypeException,
             VersionNotFoundException, NetworkException {
         V localView = (V) this.objectViewsCache.get(id);
-        if (query != null) {
-            if (query.isAvailableIn(localView.getShard())) {
-                // No need to fetch anything, we already have it
-                return;
-            }
-            // Check the previously made queries
-            Set<CRDTShardQuery<?>> cachedQueries = objectQueriesCache.get(id);
-            if (cachedQueries != null) {
-                for (CRDTShardQuery<?> cachedQuery: cachedQueries) {
-                    if (query.isSubqueryOf((CRDTShardQuery<V>) cachedQuery)) {
-                        return;
-                    }
+        
+        if (query.isAvailableIn(localView.getShard())) {
+            // No need to fetch anything, we already have it
+            return;
+        }
+        // Check the previously made queries
+        Set<CRDTShardQuery<?>> cachedQueries = objectQueriesCache.get(id);
+        if (cachedQueries != null) {
+            for (CRDTShardQuery<?> cachedQuery: cachedQueries) {
+                if (query.isSubqueryOf((CRDTShardQuery<V>) cachedQuery)) {
+                    return;
                 }
             }
-        } else {
-            if (localView.getShard().isFull()) {
-                return;
-            }
         }
-        getImpl(id, toCreate.contains(id), classOfV, updatesListener, query);
+        try {
+            getImpl(id, false, classOfV, updatesListener, query);
+        } catch (NoSuchObjectException e) {
+            throw new IllegalStateException("Object not found during fetch");
+        }
         if (!query.isAvailableIn(localView.getShard())) {
             // We cache the query to know we already did it
             // (only if it's a complex query that can't be compared with the shard)
@@ -289,7 +289,15 @@ abstract class AbstractTxnHandle implements TxnHandle, Comparable<AbstractTxnHan
             queries.add(query);
         }
     }
-
+    
+    /**
+     * With lazy fetching, a (blind) update can be registered even if it affects a part not in the shard
+     * A subsequent fetch might add an affected part to the shard
+     * which means this update should now be applied
+     * 
+     * @param id
+     * @param localView
+     */
     protected <V extends CRDT<V>> void updateWithNotFullyAppliedOperations(CRDTIdentifier id, V localView) {
         @SuppressWarnings("unchecked")
         CRDTObjectUpdatesGroup<V> toApplyOperationsGroup = (CRDTObjectUpdatesGroup<V>) notFullyAppliedOperations
@@ -482,17 +490,6 @@ abstract class AbstractTxnHandle implements TxnHandle, Comparable<AbstractTxnHan
 
     String getSessionId() {
         return sessionId;
-    }
-
-    protected <V extends CRDT<V>> V getEmptyView(CRDTIdentifier id, Class<V> classOfV) throws WrongTypeException {
-        final V emptyView;
-        try {
-            final Constructor<V> constructor = classOfV.getConstructor(CRDTIdentifier.class);
-            emptyView = constructor.newInstance(id, this, null);
-        } catch (Exception e) {
-            throw new WrongTypeException(e.getMessage());
-        }
-        return emptyView;
     }
 
     /**

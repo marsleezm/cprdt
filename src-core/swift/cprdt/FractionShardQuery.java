@@ -35,4 +35,9 @@ public class FractionShardQuery<V extends CRDT<V>> implements CRDTShardQuery<V> 
         }
         return ((FractionShardQuery<V>) other).particles.containsAll(this.particles);
     }
+
+    @Override
+    public boolean isStateIndependent() {
+        return true;
+    }
 }

@@ -21,7 +21,7 @@ public interface CRDTShardQuery<V extends CRDT<V>> {
     
     /**
      * 
-     * @param crdtVersion The version the query should run against
+     * @param crdtVersion The version the query should run against, null if the query is state independent
      * @param crdtPruneVersion Can be an older version than the one the query should run against
      * @return A copy of the crdtPruneVersion CRDT restricted to the query
      *          and with its associated shard correctly defined
@@ -33,7 +33,7 @@ public interface CRDTShardQuery<V extends CRDT<V>> {
      * @return True if this query always results in the same shard, regardless
      *         of the version of the CRDT (i.e. update(query(crdt)) == query(update(crdt)))
      */
-    //boolean isStateIndependent();
+    boolean isStateIndependent();
 
     /**
      * 

@@ -82,30 +82,21 @@ class RepeatableReadsTxnHandle extends AbstractTxnHandle {
             ObjectUpdatesListener updatesListener, CRDTShardQuery<V> query) throws WrongTypeException, NoSuchObjectException,
             VersionNotFoundException, NetworkException {
         CRDT<V> localView = (CRDT<V>) objectViewsCache.get(id);
-        if (localView != null && localView.getClock() != null) {
-            if (query != null && !query.isAvailableIn(localView.getShard())) {
+        if (localView != null) {
+            if (!localView.getShard().isFull()) {
                 // Need to fetch the queried parts
                 CRDT<V> extendedLocalView = manager.getObjectVersionTxnView(this, id, localView.getClock(), create, classOfV, updatesListener, query);
                 updateWithNotFullyAppliedOperations(id, (V)extendedLocalView);
                 localView.mergeSameVersion((V) extendedLocalView);
+                localView.setShard(localView.getShard().union(extendedLocalView.getShard()));
             } else {
                 if (updatesListener != null) {
                     manager.getObjectVersionTxnView(this, id, localView.getClock(), create, classOfV, updatesListener, query);
                 }
             }
-        }
-        if (localView == null || localView.getClock() == null) {
-            CRDT<V> newLocalView = manager.getObjectLatestVersionTxnView(this, id, cachePolicy, create, classOfV, updatesListener, null);
-            if (localView == null) {
-                localView = newLocalView;
-                objectViewsCache.put(id, localView);
-            } else {
-                // There is no clock installed on the CRDT view
-                // It was lazily loaded
-                localView.setClock(newLocalView.getClock());
-                updateWithNotFullyAppliedOperations(id, (V)newLocalView);
-                localView.mergeSameVersion((V) newLocalView);
-            }
+        } else { // localView == null
+            localView = manager.getObjectLatestVersionTxnView(this, id, cachePolicy, create, classOfV, updatesListener, null);
+            objectViewsCache.put(id, localView);
             updateUpdatesDependencyClock(localView.getClock());
         }
         return (V) localView;

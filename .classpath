@@ -4,6 +4,7 @@
 	<classpathentry excluding="swift/client/SwiftImplTest.java" kind="src" path="src-core-test"/>
 	<classpathentry excluding="loria/" kind="src" path="src-contrib"/>
 	<classpathentry excluding="swift/application/filesystem/|swift/application/swiftset/" kind="src" path="src-app"/>
+	<classpathentry kind="src" path="src-app-test"/>
 	<classpathentry kind="src" path="src-core-bench"/>
 	<classpathentry kind="src" path="scripts/groovy"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.junit.JUNIT_CONTAINER/4"/>

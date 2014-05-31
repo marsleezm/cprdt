@@ -91,33 +91,24 @@ class SnapshotIsolationTxnHandle extends AbstractTxnHandle implements TxnHandle 
             VersionNotFoundException, NetworkException {
         CRDT<V> localView = (CRDT<V>) objectViewsCache.get(id);
         
-        if (localView != null && localView.getClock() != null) {
-            if (query != null) { 
+        if (localView != null) {
+            if (!localView.getShard().isFull()) {
                 // We assume that !query.isAvailableIn(localView.getShard()) was already checked
                 // Need to fetch the queried parts
                 CRDT<V> extendedLocalView = manager.getObjectVersionTxnView(this, id, localView.getClock(), create, classOfV, updatesListener, query);
                 updateWithNotFullyAppliedOperations(id, (V)extendedLocalView);
                 localView.mergeSameVersion((V) extendedLocalView);
+                localView.setShard(localView.getShard().union(extendedLocalView.getShard()));
             } else {
                 if (updatesListener != null) {
                     // force another read to install the listener and discard it
                     manager.getObjectVersionTxnView(this, id, localView.getClock(), create, classOfV, updatesListener, query);
                 }
             }
-        }
-        if (localView == null || localView.getClock() == null) {
-            CRDT<V> newLocalView = manager.getObjectVersionTxnView(this, id, getUpdatesDependencyClock().clone(), create, classOfV,
+        } else {
+            localView = manager.getObjectVersionTxnView(this, id, getUpdatesDependencyClock().clone(), create, classOfV,
                     updatesListener, query);
-            if (localView == null) {
-                localView = newLocalView;
-                objectViewsCache.put(id, localView);
-            } else {
-                // There is no clock installed on the CRDT view
-                // It was lazily loaded
-                updateWithNotFullyAppliedOperations(id, (V)newLocalView);
-                localView.setClock(newLocalView.getClock());
-                localView.mergeSameVersion((V) newLocalView);
-            }
+            objectViewsCache.put(id, localView);
             updateUpdatesDependencyClock(localView.getClock());
         }
         return (V) localView;

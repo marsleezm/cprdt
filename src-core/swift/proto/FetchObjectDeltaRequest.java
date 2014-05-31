@@ -17,6 +17,7 @@
 package swift.proto;
 
 import swift.clocks.CausalityClock;
+import swift.cprdt.core.CRDTShardQuery;
 import swift.crdt.core.CRDTIdentifier;
 import sys.net.api.rpc.RpcHandle;
 import sys.net.api.rpc.RpcHandler;
@@ -37,8 +38,8 @@ public class FetchObjectDeltaRequest extends FetchObjectVersionRequest {
     }
 
     public FetchObjectDeltaRequest(String clientId, boolean disasterSafeSession, CRDTIdentifier id,
-            CausalityClock knownVersion, CausalityClock version, boolean strictAvailableVersion, boolean sendDCVersion) {
-        super(clientId, disasterSafeSession, id, version, strictAvailableVersion, false, sendDCVersion);
+            CausalityClock knownVersion, CausalityClock version, CRDTShardQuery<?> query, boolean strictAvailableVersion, boolean sendDCVersion) {
+        super(clientId, disasterSafeSession, id, version, query, strictAvailableVersion, false, sendDCVersion);
         this.knownVersion = knownVersion;
     }
 

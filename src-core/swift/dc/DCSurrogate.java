@@ -292,9 +292,6 @@ final public class DCSurrogate extends SwiftProtocolHandler {
             // estimatedDCStableVersionCopy);
 
             synchronized (crdt) {
-                if (request.hasQuery()) {
-                    crdt.applyShardQuery(request.getQuery(), vvReply);
-                }
                 
                 // FIXME: can we encode a diff between all these clocks on the
                 // wire?
@@ -302,6 +299,9 @@ final public class DCSurrogate extends SwiftProtocolHandler {
 
                 if (cltLastSeqNo != null)
                     crdt.augmentWithScoutClockWithoutMappings(cltLastSeqNo);
+                
+                crdt.applyShardQuery(request.getQuery(), request.getVersion());
+                
                 final FetchObjectVersionReply.FetchStatus status = (cmp == CMP_CLOCK.CMP_ISDOMINATED || cmp == CMP_CLOCK.CMP_CONCURRENT) ? FetchStatus.VERSION_NOT_FOUND
                         : FetchStatus.OK;
                 if (logger.isLoggable(Level.INFO)) {

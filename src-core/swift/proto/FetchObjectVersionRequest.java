@@ -53,11 +53,12 @@ public class FetchObjectVersionRequest extends ClientRequest implements Metadata
     FetchObjectVersionRequest() {
     }
 
-    public FetchObjectVersionRequest(String clientId, boolean disasterSafe, CRDTIdentifier uid, CausalityClock version,
+    public FetchObjectVersionRequest(String clientId, boolean disasterSafe, CRDTIdentifier uid, CausalityClock version, CRDTShardQuery<?> query,
             final boolean strictUnprunedVersion, boolean subscribe, boolean sendDCVersion) {
         super(clientId, disasterSafe);
         this.uid = uid;
         this.version = version;
+        this.query = query;
         this.subscribe = subscribe;
         this.strictUnprunedVersion = strictUnprunedVersion;
         this.sendDCVector = sendDCVersion;
@@ -97,10 +98,6 @@ public class FetchObjectVersionRequest extends ClientRequest implements Metadata
      */
     public CausalityClock getVersion() {
         return version;
-    }
-    
-    public boolean hasQuery() {
-        return query != null;
     }
     
     public CRDTShardQuery getQuery() {

@@ -79,13 +79,6 @@ public interface CRDT<V extends CRDT<V>> extends Copyable {
      */
     CausalityClock getClock();
     
-    /**
-     * <b>INTERNAL, SYSTEM USE.</b>
-     * 
-     * Set the clock, only used by the TxnHandle to allow lazy loading of the CRDT
-     */
-    void setClock(CausalityClock clock);
-    
     Shard getShard();
     void setShard(Shard shard);
     
@@ -98,9 +91,8 @@ public interface CRDT<V extends CRDT<V>> extends Copyable {
      * Only used when at least one of the CRDTs is not a full replica
      * 
      * @param other
-     * @return Reference to the merged CRDT (need not be a copy) with an updated Shard definition
      */
-    V mergeSameVersion(V other);
+    void mergeSameVersion(V other);
     
     public void fetch(Set<?> particles) throws WrongTypeException, NoSuchObjectException, VersionNotFoundException, NetworkException;
     public void fetch(CRDTShardQuery<V> query) throws WrongTypeException, NoSuchObjectException, VersionNotFoundException, NetworkException;

@@ -16,6 +16,8 @@
  *****************************************************************************/
 package swift.client;
 
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -29,6 +31,7 @@ import java.util.logging.Logger;
 
 import swift.clocks.CausalityClock;
 import swift.clocks.Timestamp;
+import swift.cprdt.core.CRDTShardQuery;
 import swift.crdt.core.CRDTIdentifier;
 import swift.crdt.core.ManagedCRDT;
 
@@ -52,6 +55,8 @@ class LRUObjectsCache {
     private final long evictionTimeMillis;
     private Map<CRDTIdentifier, Entry> entries;
     private Map<CRDTIdentifier, Entry> shadowEntries;
+    // Version specific query cache
+    private Map<CRDTIdentifier, Map<CausalityClock,Set<CRDTShardQuery<?>>>> queryCache;
     private Set<Long> evictionProtections;
 
     private EvictionListener evictionListener = new EvictionListener() {
@@ -81,6 +86,7 @@ class LRUObjectsCache {
                 Entry e = eldest.getValue();
                 if (!evictionProtections.contains(e.id()) && size() > maxElements) {
                     shadowEntries.remove(eldest.getKey());
+                    queryCache.remove(eldest.getKey());
                     evictionListener.onEviction(eldest.getKey());
 
                     // System.err.println(eldest.getKey() +
@@ -95,6 +101,8 @@ class LRUObjectsCache {
         };
         shadowEntries = new HashMap<CRDTIdentifier, Entry>();
         evictionProtections = new HashSet<Long>();
+        
+        queryCache = new HashMap<CRDTIdentifier, Map<CausalityClock,Set<CRDTShardQuery<?>>>>();
     }
 
     void setEvictionListener(EvictionListener evictionListener) {
@@ -102,20 +110,94 @@ class LRUObjectsCache {
     }
 
     /**
-     * Adds object to the cache, possibly overwriting old entry. May cause
+     * Adds object to the cache, possibly merging with or overriding old entry. May cause
      * eviction due to size limit in the cache.
      * 
      * @param object
      *            object to add
+     * @return Merged CRDT
      */
-    synchronized public void add(final ManagedCRDT<?> object, long txnSerial) {
-        if (txnSerial >= 0)
+    synchronized public ManagedCRDT<?> add(final ManagedCRDT<?> object, long txnSerial, CRDTShardQuery<?> query, CausalityClock queryVersion) {
+        if (txnSerial >= 0) {
             evictionProtections.add(txnSerial);
+        }
+        
+        CRDTIdentifier id = object.getUID();
+        
+        ManagedCRDT<?> mergedObject = object;
 
-        Entry e = new Entry(object, txnSerial);
-        entries.put(object.getUID(), e);
-        shadowEntries.put(object.getUID(), e);
-
+        Entry e = shadowEntries.get(id);
+        if (e != null) {
+            try {
+                e.getObject().merge((ManagedCRDT)object);
+                mergedObject = e.getObject();
+            } catch (IllegalStateException x) {
+                logger.warning("Merging incoming object version " + object.getClock() + " with the cached version "
+                        + e.getObject().getClock() + " has failed with our heuristic - dropping cached version" + x);
+                queryCache.remove(id);
+            }
+            
+        }
+        e = new Entry(mergedObject, txnSerial);
+        entries.put(id, e);
+        shadowEntries.put(id, e);
+        
+        if (!query.isStateIndependent() && !query.isAvailableIn(mergedObject.getShard())) {
+            queryVersion = queryVersion.clone();
+            Map<CausalityClock,Set<CRDTShardQuery<?>>> cachedVersionedQueries = queryCache.get(id);
+            if (cachedVersionedQueries == null) {
+                cachedVersionedQueries = new HashMap<CausalityClock,Set<CRDTShardQuery<?>>>();
+                queryCache.put(id, cachedVersionedQueries);
+            }
+            Set<CRDTShardQuery<?>> cachedQueries = cachedVersionedQueries.get(queryVersion);
+            if (cachedQueries == null) {
+                cachedQueries = new HashSet<CRDTShardQuery<?>>();
+                cachedVersionedQueries.put(queryVersion, cachedQueries);
+            }
+            cachedQueries.add((CRDTShardQuery)query);
+        }
+        return mergedObject;
+    }
+    
+    @SuppressWarnings({ "unchecked", "rawtypes" })
+    synchronized public boolean has(final CRDTIdentifier id, CRDTShardQuery<?> query, CausalityClock version) {
+        ManagedCRDT<?> crdt = getWithoutTouch(id);
+        if (crdt == null) {
+            return false;
+        }
+        if (query.isAvailableIn(crdt.getShard())) {
+            return true;
+        }
+        if (!query.isStateIndependent()) {
+            Map<CausalityClock,Set<CRDTShardQuery<?>>> cachedVersionedQueries = queryCache.get(id);
+            if (cachedVersionedQueries != null) {
+                Collection<Set<CRDTShardQuery<?>>> relevantVersions;
+                // TODO give control to the query implementation to choose relevant version
+                // e.g. can choose to accept a version for which a query was executed on a previous version
+                // Maybe have a threshold on the number of updates between the queried version and the requested version
+                if (version == null) {
+                    relevantVersions = cachedVersionedQueries.values();
+                } else {
+                    Set<CRDTShardQuery<?>> relevantVersion = cachedVersionedQueries.get(version);
+                    if (relevantVersion == null) {
+                        relevantVersions = Collections.emptySet();
+                    } else {
+                        relevantVersions = Collections.singleton(relevantVersion);
+                    }
+                }
+                for (Set<CRDTShardQuery<?>> cachedQueries: relevantVersions) {
+                    if (cachedQueries != null) {
+                        for (CRDTShardQuery<?> cachedQuery: cachedQueries) {
+                            if (query.isSubqueryOf((CRDTShardQuery)cachedQuery)) {
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        return false;
     }
 
     /**

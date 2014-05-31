@@ -91,13 +91,29 @@ public abstract class BaseCRDT<V extends BaseCRDT<V>> implements CRDT<V> {
      *            (otherwise null)
      */
     protected BaseCRDT(CRDTIdentifier id, TxnHandle txn, CausalityClock clock) {
+        this(id, txn, clock, Shard.fullShard);
+    }
+    
+    /**
+     * Copying constructor with partial replica support.
+     * 
+     * @param id
+     *            identifier of the CRDT object
+     * @param txn
+     *            transaction with which the object is registered if this is a
+     *            txn-local instance (otherwise null)
+     * @param clock
+     *            snapshot clock of the object if this is a txn-local instance
+     *            (otherwise null)
+     */
+    protected BaseCRDT(CRDTIdentifier id, TxnHandle txn, CausalityClock clock, Shard shard) {
         if (id == null) {
             throw new IllegalArgumentException("No id provided for an object");
         }
         this.id = id;
         this.txn = txn;
         this.clock = clock;
-        this.shard = Shard.fullShard;
+        this.shard = shard;
     }
     
     @Override
@@ -134,14 +150,6 @@ public abstract class BaseCRDT<V extends BaseCRDT<V>> implements CRDT<V> {
         return clock;
     }
     
-    @Override
-    public void setClock(CausalityClock clock) {
-        if (this.clock != null) {
-            throw new IllegalStateException("Trying to change the clock of a CRDT");
-        }
-        this.clock = clock;
-    }
-    
     public Shard getShard() {
         return shard;
     }
@@ -150,20 +158,27 @@ public abstract class BaseCRDT<V extends BaseCRDT<V>> implements CRDT<V> {
     }
     
     @Override
-    public void fetch(Set<?> particles) throws WrongTypeException, NoSuchObjectException, VersionNotFoundException, NetworkException {
-        this.getTxnHandle().fetch(this.getUID(), this.getClass(), particles);
+    public void fetch(Set<?> particles) throws NoSuchObjectException, VersionNotFoundException, NetworkException {
+        try {
+            this.getTxnHandle().fetch(this.getUID(), this.getClass(), particles);
+        } catch (WrongTypeException e) {
+            throw new IllegalStateException(e.getMessage());
+        }
     }
     @Override
-    public void fetch(CRDTShardQuery<V> query) throws WrongTypeException, NoSuchObjectException, VersionNotFoundException, NetworkException {
-        this.getTxnHandle().fetch(this.getUID(), (Class<V>) this.getClass(), query);
+    public void fetch(CRDTShardQuery<V> query) throws NoSuchObjectException, VersionNotFoundException, NetworkException {
+        try {
+            this.getTxnHandle().fetch(this.getUID(), (Class<V>) this.getClass(), query);
+        } catch (WrongTypeException e) {
+            throw new IllegalStateException(e.getMessage());
+        }
     }
     
     @Override
     /**
      * Must be overridden if the CRDT supports partial replicas
      */
-    public V mergeSameVersion(V other) {
-        return other;
+    public void mergeSameVersion(V other) {
     }
     
     @Override

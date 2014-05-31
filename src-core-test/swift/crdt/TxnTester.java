@@ -231,7 +231,6 @@ public class TxnTester implements TxnHandle {
             ObjectUpdatesListener listener) throws WrongTypeException, NoSuchObjectException, VersionNotFoundException,
             NetworkException {
         // TODO
-        throw new UnsupportedOperationException();
     }
 
 }

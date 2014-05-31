@@ -272,9 +272,11 @@ public class ManagedCRDT<V extends CRDT<V>> {
             }
             
             // Merge these pruning points
-            V newCommonCheckpoint = this.checkpoint.mergeSameVersion(other.checkpoint);
-            this.checkpoint = newCommonCheckpoint;
-            other.checkpoint = newCommonCheckpoint;
+            this.checkpoint.mergeSameVersion(other.checkpoint);
+            
+            this.checkpoint.setShard(this.getShard().union(other.getShard()));
+            
+            other.checkpoint = this.checkpoint;
         }
 
         // This is a somewhat messy best-effort logic, since merge is not
@@ -431,7 +433,15 @@ public class ManagedCRDT<V extends CRDT<V>> {
      * @param query
      */
     public void applyShardQuery(CRDTShardQuery<V> query, CausalityClock onVersion) {
-        checkpoint = query.executeAt(getReadOnlyVersion(onVersion), checkpoint);
+        if (onVersion == null) {
+            onVersion = getClock();
+        }
+        V versionView = null;
+        if (!query.isStateIndependent()) {
+            versionView = getReadOnlyVersion(onVersion);
+        }
+        checkpoint = query.executeAt(versionView, checkpoint);
+        // TODO remove non needed updates
     }
 
     /**
