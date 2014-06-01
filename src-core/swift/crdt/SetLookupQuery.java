@@ -27,6 +27,10 @@ public class SetLookupQuery<V, T extends AbstractAddWinsSetCRDT<V, T>> implement
 
     @Override
     public Object executeAt(T crdtVersion) {
-        return crdtVersion.lookup(element);
+        try {
+            return crdtVersion.lookup(element);
+        } catch (Exception e) {
+            return null;
+        }
     }
 }

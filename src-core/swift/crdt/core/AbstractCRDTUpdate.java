@@ -27,11 +27,6 @@ public abstract class AbstractCRDTUpdate<V extends CRDT<V>> implements CRDTUpdat
     public abstract void applyTo(V crdt);
     
     @Override
-    public Set<Object> requiredParticles() {
-        return null;
-    }
-    
-    @Override
     public Set<Object> affectedParticles() {
         return null;
     }

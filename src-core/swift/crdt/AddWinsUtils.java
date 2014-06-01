@@ -77,4 +77,22 @@ public final class AddWinsUtils {
             newInstances.put(entry.getKey(), new HashSet<TripleTimestamp>(entry.getValue()));
         }
     }
+
+    public static <V, T extends Map<V, Set<TripleTimestamp>>> void deepFractionCopy(T origInstances, T newInstances, Set<V> fraction) {
+        // The map might not be a hashmap, so it's maybe not the most efficient way to do it
+        if (fraction.size() >= origInstances.size()) {
+            for (final Entry<V, Set<TripleTimestamp>> entry : origInstances.entrySet()) {
+                if (fraction.contains(entry.getKey())) {
+                    newInstances.put(entry.getKey(), new HashSet<TripleTimestamp>(entry.getValue()));
+                }
+            }
+        } else {
+            for (final V key : fraction) {
+                Set<TripleTimestamp> value = origInstances.get(key);
+                if (value != null) {
+                    newInstances.put(key, new HashSet<TripleTimestamp>(value));
+                }
+            }
+        }
+    }
 }

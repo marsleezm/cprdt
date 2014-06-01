@@ -32,6 +32,7 @@ import swift.clocks.TimestampMapping;
 import swift.clocks.TimestampSource;
 import swift.clocks.TripleTimestamp;
 import swift.cprdt.FractionShardQuery;
+import swift.cprdt.HollowShardQuery;
 import swift.cprdt.core.CRDTShardQuery;
 import swift.crdt.core.BulkGetProgressListener;
 import swift.crdt.core.CRDT;
@@ -102,28 +103,7 @@ public class TxnTester implements TxnHandle {
     @Override
     public <V extends CRDT<V>> V get(CRDTIdentifier id, boolean create, Class<V> classOfV,
             ObjectUpdatesListener listener) throws WrongTypeException, NoSuchObjectException {
-
-        try {
-            CRDT<?> cached = versions.get(id);
-            if (cached == null) {
-                ManagedCRDT<V> managedObject = getOrCreateVersionedCRDT(id, classOfV, create);
-                CRDT<V> localView = managedObject.getVersion(getClock(), this);
-                versions.put(id, localView);
-                return (V) localView;
-            } else {
-                return (V) cached;
-            }
-        } catch (ClassCastException x) {
-            throw new WrongTypeException(x.toString());
-        } catch (InstantiationException e) {
-            throw new WrongTypeException(e.toString());
-        } catch (IllegalAccessException e) {
-            throw new WrongTypeException(e.toString());
-        } catch (NoSuchMethodException e) {
-            throw new WrongTypeException(e.toString());
-        } catch (InvocationTargetException e) {
-            throw new RuntimeException(e.toString());
-        }
+        return get(id, create, classOfV, listener, false);
     }
 
     protected <V extends CRDT<V>> ManagedCRDT<V> getOrCreateVersionedCRDT(CRDTIdentifier id, Class<V> classOfV,
@@ -206,31 +186,90 @@ public class TxnTester implements TxnHandle {
     public Map<CRDTIdentifier, CRDT<?>> bulkGet(CRDTIdentifier... ids) {
         throw new UnsupportedOperationException();
     }
-
+    
     @Override
     public <V extends CRDT<V>> V get(CRDTIdentifier id, boolean create, Class<V> classOfV,
             boolean lazy) throws WrongTypeException,
-            NoSuchObjectException, VersionNotFoundException, NetworkException {
-        return get(id, create, classOfV, null);
+            NoSuchObjectException {
+        return get(id, create, classOfV, null, lazy);
+    }
+
+    private <V extends CRDT<V>> V get(CRDTIdentifier id, boolean create, Class<V> classOfV, ObjectUpdatesListener listener,
+            boolean lazy) throws WrongTypeException,
+            NoSuchObjectException {
+        try {
+            CRDT<?> cached = versions.get(id);
+            if (cached == null) {
+                ManagedCRDT<V> managedObject = getOrCreateVersionedCRDT(id, classOfV, create);
+                CRDT<V> localView;
+                if (lazy) {
+                    managedObject = managedObject.copyWithRestrictedVersioning(getClock());
+                    managedObject.applyShardQuery(new HollowShardQuery(), getClock());
+                    localView = managedObject.getVersion(getClock(), this);
+                } else {
+                    localView = managedObject.getVersion(getClock(), this);
+                }
+                versions.put(id, localView);
+                return (V) localView;
+            } else {
+                return (V) cached;
+            }
+        } catch (ClassCastException x) {
+            throw new WrongTypeException(x.toString());
+        } catch (InstantiationException e) {
+            throw new WrongTypeException(e.toString());
+        } catch (IllegalAccessException e) {
+            throw new WrongTypeException(e.toString());
+        } catch (NoSuchMethodException e) {
+            throw new WrongTypeException(e.toString());
+        } catch (InvocationTargetException e) {
+            throw new RuntimeException(e.toString());
+        }
     }
 
     @Override
     public <V extends CRDT<V>> void fetch(CRDTIdentifier id, Class<V> classOfV, Set<?> particles)
-            throws WrongTypeException, NoSuchObjectException, VersionNotFoundException, NetworkException {
+            throws WrongTypeException, VersionNotFoundException, NetworkException {
         fetch(id, classOfV, new FractionShardQuery<V>(particles));
     }
 
     @Override
     public <V extends CRDT<V>> void fetch(CRDTIdentifier id, Class<V> classOfV, CRDTShardQuery<V> query)
-            throws WrongTypeException, NoSuchObjectException, VersionNotFoundException, NetworkException {
+            throws WrongTypeException, VersionNotFoundException, NetworkException {
         fetch(id, classOfV, query, null);
     }
 
     @Override
     public <V extends CRDT<V>> void fetch(CRDTIdentifier id, Class<V> classOfV, CRDTShardQuery<V> query,
-            ObjectUpdatesListener listener) throws WrongTypeException, NoSuchObjectException, VersionNotFoundException,
+            ObjectUpdatesListener listener) throws WrongTypeException, VersionNotFoundException,
             NetworkException {
-        // TODO
+        CRDT<V> localView = (CRDT<V>) versions.get(id);
+        if (localView == null) {
+            // ignored for concurrent tests
+            return;
+        }
+        if (query.isAvailableIn(localView.getShard())) {
+            return;
+        }
+        ManagedCRDT<V> managedObject;
+        try {
+            managedObject = getOrCreateVersionedCRDT(id, classOfV, false);
+        } catch (NoSuchObjectException e) {
+            throw new IllegalStateException("No object during fetch "+e.getMessage());
+        } catch (ClassCastException x) {
+            throw new WrongTypeException(x.toString());
+        } catch (InstantiationException e) {
+            throw new WrongTypeException(e.toString());
+        } catch (IllegalAccessException e) {
+            throw new WrongTypeException(e.toString());
+        } catch (NoSuchMethodException e) {
+            throw new WrongTypeException(e.toString());
+        } catch (InvocationTargetException e) {
+            throw new RuntimeException(e.toString());
+        }
+        managedObject = managedObject.copyWithRestrictedVersioning(getClock());
+        managedObject.applyShardQuery(new HollowShardQuery(), getClock());
+        localView.mergeSameVersion(managedObject.getVersion(getClock(), this));
     }
 
 }

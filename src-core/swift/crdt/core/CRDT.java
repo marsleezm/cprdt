@@ -94,8 +94,8 @@ public interface CRDT<V extends CRDT<V>> extends Copyable {
      */
     void mergeSameVersion(V other);
     
-    public void fetch(Set<?> particles) throws WrongTypeException, NoSuchObjectException, VersionNotFoundException, NetworkException;
-    public void fetch(CRDTShardQuery<V> query) throws WrongTypeException, NoSuchObjectException, VersionNotFoundException, NetworkException;
+    public void fetch(Set<?> particles) throws VersionNotFoundException, NetworkException;
+    public void fetch(CRDTShardQuery<V> query) throws VersionNotFoundException, NetworkException;
     
     /**
      * Make a partial copy of the CRDT

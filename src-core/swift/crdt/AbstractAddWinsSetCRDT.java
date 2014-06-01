@@ -22,10 +22,13 @@ import java.util.Set;
 
 import swift.clocks.CausalityClock;
 import swift.clocks.TripleTimestamp;
+import swift.cprdt.FullShardQuery;
 import swift.cprdt.core.Shard;
 import swift.crdt.core.BaseCRDT;
 import swift.crdt.core.CRDTIdentifier;
 import swift.crdt.core.TxnHandle;
+import swift.exceptions.NetworkException;
+import swift.exceptions.VersionNotFoundException;
 import swift.utils.PrettyPrint;
 
 /**
@@ -48,8 +51,8 @@ public abstract class AbstractAddWinsSetCRDT<V, T extends AbstractAddWinsSetCRDT
         super(id);
     }
 
-    protected AbstractAddWinsSetCRDT(final CRDTIdentifier id, final TxnHandle txn, final CausalityClock clock) {
-        super(id, txn, clock);
+    protected AbstractAddWinsSetCRDT(final CRDTIdentifier id, final TxnHandle txn, final CausalityClock clock, final Shard shard) {
+        super(id, txn, clock, shard);
     }
 
     protected abstract Map<V, Set<TripleTimestamp>> getElementsInstances();
@@ -61,22 +64,35 @@ public abstract class AbstractAddWinsSetCRDT<V, T extends AbstractAddWinsSetCRDT
     public Set<V> getValue() {
         return Collections.unmodifiableSet(getElementsInstances().keySet());
     }
+    
+    public Set<V> getFullSet() throws VersionNotFoundException, NetworkException {
+        fetch(new FullShardQuery());
+        return getValue();
+    }
 
     public int size() {
         return getElementsInstances().size();
     }
+    
+    public int fullSize() throws VersionNotFoundException, NetworkException {
+        fetch(new FullShardQuery());
+        return size();
+    }
 
-    public boolean lookup(V element) {
+    public boolean lookup(V element) throws VersionNotFoundException, NetworkException {
+        fetch(Collections.singleton(element));
         return getElementsInstances().containsKey(element);
     }
 
-    public void add(final V element) {
+    public void add(final V element) throws VersionNotFoundException, NetworkException {
+        fetch(Collections.singleton(element));
         final TripleTimestamp ts = nextTimestamp();
         final Set<TripleTimestamp> existingInstances = AddWinsUtils.add(getElementsInstances(), element, ts);
         registerLocalOperation(new AddWinsSetAddUpdate<V, T>(element, ts, existingInstances));
     }
 
-    public void remove(V element) {
+    public void remove(V element) throws VersionNotFoundException, NetworkException {
+        fetch(Collections.singleton(element));
         Set<TripleTimestamp> removedInstances = AddWinsUtils.remove(getElementsInstances(), element);
         if (removedInstances != null) {
             registerLocalOperation(new AddWinsSetRemoveUpdate<V, T>(element, removedInstances));

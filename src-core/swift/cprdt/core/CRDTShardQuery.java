@@ -32,6 +32,7 @@ public interface CRDTShardQuery<V extends CRDT<V>> {
      * 
      * @return True if this query always results in the same shard, regardless
      *         of the version of the CRDT (i.e. update(query(crdt)) == query(update(crdt)))
+     *         and if the query can always be compared with the shard
      */
     boolean isStateIndependent();
 
@@ -43,5 +44,10 @@ public interface CRDTShardQuery<V extends CRDT<V>> {
      */
     boolean isAvailableIn(Shard shard);
     
+    /**
+     * Does not need to be implemented if the query is state independent
+     * @param other
+     * @return
+     */
     boolean isSubqueryOf(CRDTShardQuery<V> other);
 }

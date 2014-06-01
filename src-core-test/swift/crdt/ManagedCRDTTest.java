@@ -523,21 +523,18 @@ public class ManagedCRDTTest {
             }
 
             @Override
-            public <V extends CRDT<V>> void fetch(CRDTIdentifier id, Class<V> classOfV, Set<?> particles)
-                    throws WrongTypeException, NoSuchObjectException, VersionNotFoundException, NetworkException {
+            public <V extends CRDT<V>> void fetch(CRDTIdentifier id, Class<V> classOfV, Set<?> particles) {
                 return;
             }
 
             @Override
-            public <V extends CRDT<V>> void fetch(CRDTIdentifier id, Class<V> classOfV, CRDTShardQuery<V> query)
-                    throws WrongTypeException, NoSuchObjectException, VersionNotFoundException, NetworkException {
+            public <V extends CRDT<V>> void fetch(CRDTIdentifier id, Class<V> classOfV, CRDTShardQuery<V> query) {
                 return;
             }
 
             @Override
             public <V extends CRDT<V>> void fetch(CRDTIdentifier id, Class<V> classOfV, CRDTShardQuery<V> query,
-                    ObjectUpdatesListener listener) throws WrongTypeException, NoSuchObjectException,
-                    VersionNotFoundException, NetworkException {
+                    ObjectUpdatesListener listener) {
                 return;
             }
         });

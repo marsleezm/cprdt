@@ -22,6 +22,7 @@ import java.util.Set;
 
 import swift.clocks.CausalityClock;
 import swift.clocks.TripleTimestamp;
+import swift.cprdt.core.Shard;
 import swift.crdt.core.CRDTIdentifier;
 import swift.crdt.core.TxnHandle;
 
@@ -46,9 +47,9 @@ public class AddWinsSetCRDT<V> extends AbstractAddWinsSetCRDT<V, AddWinsSetCRDT<
         this.elemsInstances = new HashMap<V, Set<TripleTimestamp>>();
     }
 
-    private AddWinsSetCRDT(CRDTIdentifier id, final TxnHandle txn, final CausalityClock clock,
+    private AddWinsSetCRDT(CRDTIdentifier id, final TxnHandle txn, final CausalityClock clock, final Shard shard,
             Map<V, Set<TripleTimestamp>> elemsInstances) {
-        super(id, txn, clock);
+        super(id, txn, clock, shard);
         this.elemsInstances = elemsInstances;
     }
 
@@ -58,9 +59,16 @@ public class AddWinsSetCRDT<V> extends AbstractAddWinsSetCRDT<V, AddWinsSetCRDT<
     }
 
     @Override
+    public AddWinsSetCRDT<V> copyFraction(Set<?> particles) {
+        final HashMap<V, Set<TripleTimestamp>> newInstances = new HashMap<V, Set<TripleTimestamp>>();
+        AddWinsUtils.deepFractionCopy(elemsInstances, newInstances, (Set<V>) particles);
+        return new AddWinsSetCRDT<V>(id, txn, clock, new Shard(particles), newInstances);
+    }
+
+    @Override
     public AddWinsSetCRDT<V> copy() {
         final HashMap<V, Set<TripleTimestamp>> newInstances = new HashMap<V, Set<TripleTimestamp>>();
         AddWinsUtils.deepCopy(elemsInstances, newInstances);
-        return new AddWinsSetCRDT<V>(id, txn, clock, newInstances);
+        return new AddWinsSetCRDT<V>(id, txn, clock, this.getShard(), newInstances);
     }
 }

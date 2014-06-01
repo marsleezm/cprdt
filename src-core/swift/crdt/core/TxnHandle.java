@@ -122,13 +122,13 @@ public interface TxnHandle {
     <V extends CRDT<V>> V get(CRDTIdentifier id, boolean create, Class<V> classOfV,
             final ObjectUpdatesListener updatesListener) throws WrongTypeException, NoSuchObjectException,
             VersionNotFoundException, NetworkException;
-    
+
     /**
      * See {@link #get(CRDTIdentifier, boolean, Class, ObjectUpdatesListener)}
      * with an added lazy modifier to build up the CRDT on operations
      */
-    <V extends CRDT<V>> V get(CRDTIdentifier id, boolean create, Class<V> classOfV, boolean lazy) throws WrongTypeException, NoSuchObjectException,
-            VersionNotFoundException, NetworkException;
+    <V extends CRDT<V>> V get(CRDTIdentifier id, boolean create, Class<V> classOfV, boolean lazy)
+            throws WrongTypeException, NoSuchObjectException, VersionNotFoundException, NetworkException;
 
     /**
      * Commits the transaction and blocks until the transaction is committed to
@@ -222,9 +222,11 @@ public interface TxnHandle {
     <V extends CRDT<V>> void registerObjectCreation(final CRDTIdentifier id, V creationState);
 
     <V extends CRDT<V>> void fetch(CRDTIdentifier id, Class<V> classOfV, Set<?> particles) throws WrongTypeException,
-            NoSuchObjectException, VersionNotFoundException, NetworkException;
-    <V extends CRDT<V>> void fetch(CRDTIdentifier id, Class<V> classOfV, CRDTShardQuery<V> query) throws WrongTypeException,
-    NoSuchObjectException, VersionNotFoundException, NetworkException;
-    <V extends CRDT<V>> void fetch(CRDTIdentifier id, Class<V> classOfV, CRDTShardQuery<V> query, ObjectUpdatesListener listener) throws WrongTypeException,
-    NoSuchObjectException, VersionNotFoundException, NetworkException;
+            VersionNotFoundException, NetworkException;
+
+    <V extends CRDT<V>> void fetch(CRDTIdentifier id, Class<V> classOfV, CRDTShardQuery<V> query)
+            throws WrongTypeException, VersionNotFoundException, NetworkException;
+
+    <V extends CRDT<V>> void fetch(CRDTIdentifier id, Class<V> classOfV, CRDTShardQuery<V> query,
+            ObjectUpdatesListener listener) throws WrongTypeException, VersionNotFoundException, NetworkException;
 }

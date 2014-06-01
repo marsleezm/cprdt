@@ -37,7 +37,11 @@ public interface CRDTUpdate<V extends CRDT<V>> {
      * @return Set of particles of the CRDT needed to apply this update
      *  or null if a full CRDT is needed
      */
+    /* Not supported
+     * Is there a useful case where this is not empty and different from affectedParticles() ?
     Set<Object> requiredParticles();
+    */
+    
     /**
      * 
      * @return Set of particles of the CRDT this update can affect (might change its state)

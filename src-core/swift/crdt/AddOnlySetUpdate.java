@@ -1,5 +1,8 @@
 package swift.crdt;
 
+import java.util.Collections;
+import java.util.Set;
+
 import swift.crdt.core.AbstractCRDTUpdate;
 
 public class AddOnlySetUpdate<V> extends AbstractCRDTUpdate<AddOnlySetCRDT<V>> {
@@ -21,5 +24,10 @@ public class AddOnlySetUpdate<V> extends AbstractCRDTUpdate<AddOnlySetCRDT<V>> {
     @Override
     public Object getValueWithoutMetadata() {
         return element;
+    }
+    
+    @Override
+    public Set<Object> affectedParticles() {
+        return Collections.singleton((Object)element);
     }
 }

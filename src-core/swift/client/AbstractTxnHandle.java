@@ -259,6 +259,9 @@ abstract class AbstractTxnHandle implements TxnHandle, Comparable<AbstractTxnHan
             ObjectUpdatesListener updatesListener) throws WrongTypeException,
             VersionNotFoundException, NetworkException {
         V localView = (V) this.objectViewsCache.get(id);
+        if (localView == null) {
+            throw new IllegalStateException("Doing a fetch() without a previous get()");
+        }
         
         if (query.isAvailableIn(localView.getShard())) {
             // No need to fetch anything, we already have it

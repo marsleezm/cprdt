@@ -158,7 +158,7 @@ public abstract class BaseCRDT<V extends BaseCRDT<V>> implements CRDT<V> {
     }
     
     @Override
-    public void fetch(Set<?> particles) throws NoSuchObjectException, VersionNotFoundException, NetworkException {
+    public void fetch(Set<?> particles) throws VersionNotFoundException, NetworkException {
         try {
             this.getTxnHandle().fetch(this.getUID(), this.getClass(), particles);
         } catch (WrongTypeException e) {
@@ -166,7 +166,7 @@ public abstract class BaseCRDT<V extends BaseCRDT<V>> implements CRDT<V> {
         }
     }
     @Override
-    public void fetch(CRDTShardQuery<V> query) throws NoSuchObjectException, VersionNotFoundException, NetworkException {
+    public void fetch(CRDTShardQuery<V> query) throws VersionNotFoundException, NetworkException {
         try {
             this.getTxnHandle().fetch(this.getUID(), (Class<V>) this.getClass(), query);
         } catch (WrongTypeException e) {

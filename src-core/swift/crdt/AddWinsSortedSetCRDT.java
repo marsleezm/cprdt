@@ -16,6 +16,7 @@
  *****************************************************************************/
 package swift.crdt;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
@@ -23,6 +24,7 @@ import java.util.TreeMap;
 
 import swift.clocks.CausalityClock;
 import swift.clocks.TripleTimestamp;
+import swift.cprdt.core.Shard;
 import swift.crdt.core.CRDTIdentifier;
 import swift.crdt.core.TxnHandle;
 
@@ -47,9 +49,9 @@ public class AddWinsSortedSetCRDT<V extends Comparable<V>> extends AbstractAddWi
         this.elemsInstances = new TreeMap<V, Set<TripleTimestamp>>();
     }
 
-    private AddWinsSortedSetCRDT(CRDTIdentifier id, final TxnHandle txn, final CausalityClock clock,
+    private AddWinsSortedSetCRDT(CRDTIdentifier id, final TxnHandle txn, final CausalityClock clock, final Shard shard,
             SortedMap<V, Set<TripleTimestamp>> elemsInstances) {
-        super(id, txn, clock);
+        super(id, txn, clock, shard);
         this.elemsInstances = elemsInstances;
     }
 
@@ -59,9 +61,22 @@ public class AddWinsSortedSetCRDT<V extends Comparable<V>> extends AbstractAddWi
     }
 
     @Override
+    public AddWinsSortedSetCRDT<V> copyFraction(Set<?> particles) {
+        final SortedMap<V, Set<TripleTimestamp>> newInstances = new TreeMap<V, Set<TripleTimestamp>>();
+        AddWinsUtils.deepFractionCopy(elemsInstances, newInstances, (Set<V>) particles);
+        return new AddWinsSortedSetCRDT<V>(id, txn, clock, new Shard(particles), newInstances);
+    }
+    
+    public AddWinsSortedSetCRDT<V> copyInterval(V fromNotInclusive, V toInclusive) {
+        final TreeMap<V, Set<TripleTimestamp>> newInstances = new TreeMap<V, Set<TripleTimestamp>>();
+        AddWinsUtils.deepFractionCopy(elemsInstances, newInstances, elemsInstances.subMap(fromNotInclusive, toInclusive).keySet());
+        return new AddWinsSortedSetCRDT<V>(id, txn, clock, new Shard(fromNotInclusive, toInclusive), newInstances);
+    }
+
+    @Override
     public AddWinsSortedSetCRDT<V> copy() {
         final SortedMap<V, Set<TripleTimestamp>> newInstances = new TreeMap<V, Set<TripleTimestamp>>();
         AddWinsUtils.deepCopy(elemsInstances, newInstances);
-        return new AddWinsSortedSetCRDT<V>(id, txn, clock, newInstances);
+        return new AddWinsSortedSetCRDT<V>(id, txn, clock, this.getShard(), newInstances);
     }
 }

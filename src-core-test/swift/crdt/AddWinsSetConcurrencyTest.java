@@ -45,7 +45,11 @@ public class AddWinsSetConcurrencyTest {
         try {
             @SuppressWarnings("unchecked")
             final AddWinsSetCRDT<Integer> set = txn.get(i.getUID(), false, AddWinsSetCRDT.class);
-            set.add(value);
+            try {
+                set.add(value);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         } catch (WrongTypeException e) {
             throw new RuntimeException(e);
         } catch (NoSuchObjectException e) {
@@ -60,7 +64,11 @@ public class AddWinsSetConcurrencyTest {
         try {
             @SuppressWarnings("unchecked")
             final AddWinsSetCRDT<Integer> set = txn.get(i.getUID(), false, AddWinsSetCRDT.class);
-            set.remove(value);
+            try {
+                set.remove(value);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         } catch (WrongTypeException e) {
             throw new RuntimeException(e);
         } catch (NoSuchObjectException e) {
@@ -86,7 +94,11 @@ public class AddWinsSetConcurrencyTest {
     public void mergeEmpty1() {
         registerSingleAddTxn(5, i1, swift1);
         mergeI2IntoI1();
-        assertTrue(getLatestVersion(i1, swift1.beginTxn()).lookup(5));
+        try {
+            assertTrue(getLatestVersion(i1, swift1.beginTxn()).lookup(5));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     // Merge with empty set
@@ -94,7 +106,11 @@ public class AddWinsSetConcurrencyTest {
     public void mergeEmpty2() {
         registerSingleAddTxn(5, i2, swift2);
         mergeI2IntoI1();
-        assertTrue(getLatestVersion(i1, swift1.beginTxn()).lookup(5));
+        try {
+            assertTrue(getLatestVersion(i1, swift1.beginTxn()).lookup(5));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     @Test
@@ -102,8 +118,12 @@ public class AddWinsSetConcurrencyTest {
         registerSingleAddTxn(5, i1, swift1);
         registerSingleAddTxn(6, i2, swift2);
         mergeI2IntoI1();
-        assertTrue(getLatestVersion(i1, swift1.beginTxn()).lookup(5));
-        assertTrue(getLatestVersion(i1, swift1.beginTxn()).lookup(6));
+        try {
+            assertTrue(getLatestVersion(i1, swift1.beginTxn()).lookup(5));
+            assertTrue(getLatestVersion(i1, swift1.beginTxn()).lookup(6));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     @Test
@@ -111,7 +131,11 @@ public class AddWinsSetConcurrencyTest {
         registerSingleAddTxn(5, i1, swift1);
         registerSingleAddTxn(5, i2, swift2);
         mergeI2IntoI1();
-        assertTrue(getLatestVersion(i1, swift1.beginTxn()).lookup(5));
+        try {
+            assertTrue(getLatestVersion(i1, swift1.beginTxn()).lookup(5));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     @Test
@@ -119,7 +143,11 @@ public class AddWinsSetConcurrencyTest {
         registerSingleRemoveTxn(5, i1, swift1);
         registerSingleRemoveTxn(5, i2, swift2);
         mergeI2IntoI1();
-        assertTrue(!getLatestVersion(i1, swift1.beginTxn()).lookup(5));
+        try {
+            assertTrue(!getLatestVersion(i1, swift1.beginTxn()).lookup(5));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     @Test
@@ -128,10 +156,14 @@ public class AddWinsSetConcurrencyTest {
 
         registerSingleRemoveTxn(5, i2, swift2);
         mergeI2IntoI1();
-        assertTrue(getLatestVersion(i1, swift1.beginTxn()).lookup(5));
-
-        registerSingleRemoveTxn(5, i1, swift1);
-        assertTrue(!getLatestVersion(i1, swift1.beginTxn()).lookup(5));
+        try {
+            assertTrue(getLatestVersion(i1, swift1.beginTxn()).lookup(5));
+    
+            registerSingleRemoveTxn(5, i1, swift1);
+            assertTrue(!getLatestVersion(i1, swift1.beginTxn()).lookup(5));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     @Test
@@ -142,6 +174,10 @@ public class AddWinsSetConcurrencyTest {
         registerSingleAddTxn(5, i2, swift2);
         mergeI2IntoI1();
         // TesterUtils.printInformtion(i1, swift1.beginTxn());
-        assertTrue(getLatestVersion(i1, swift1.beginTxn()).lookup(5));
+        try {
+            assertTrue(getLatestVersion(i1, swift1.beginTxn()).lookup(5));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 }
