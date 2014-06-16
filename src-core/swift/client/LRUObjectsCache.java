@@ -32,6 +32,7 @@ import java.util.logging.Logger;
 import swift.clocks.CausalityClock;
 import swift.clocks.Timestamp;
 import swift.cprdt.core.CRDTShardQuery;
+import swift.crdt.core.CRDT;
 import swift.crdt.core.CRDTIdentifier;
 import swift.crdt.core.ManagedCRDT;
 
@@ -117,21 +118,22 @@ class LRUObjectsCache {
      *            object to add
      * @return Merged CRDT
      */
-    synchronized public ManagedCRDT<?> add(final ManagedCRDT<?> object, long txnSerial, CRDTShardQuery<?> query, CausalityClock queryVersion) {
+    synchronized public <V extends CRDT<V>> ManagedCRDT<V> add(final ManagedCRDT<V> object, long txnSerial, CRDTShardQuery<V> query, CausalityClock queryVersion) {
         if (txnSerial >= 0) {
             evictionProtections.add(txnSerial);
         }
         
         CRDTIdentifier id = object.getUID();
         
-        ManagedCRDT<?> mergedObject = object;
+        ManagedCRDT<V> mergedObject = (ManagedCRDT) object;
 
         Entry e = shadowEntries.get(id);
         if (e != null) {
             try {
                 e.getObject().merge((ManagedCRDT)object);
-                mergedObject = e.getObject();
+                mergedObject = (ManagedCRDT) e.getObject();
             } catch (IllegalStateException x) {
+                // Is it ok to do this even if there is an eviction protection on the existing version ?
                 logger.warning("Merging incoming object version " + object.getClock() + " with the cached version "
                         + e.getObject().getClock() + " has failed with our heuristic - dropping cached version" + x);
                 queryCache.remove(id);
@@ -160,7 +162,7 @@ class LRUObjectsCache {
     }
     
     @SuppressWarnings({ "unchecked", "rawtypes" })
-    synchronized public boolean has(final CRDTIdentifier id, CRDTShardQuery<?> query, CausalityClock version) {
+    private boolean has(final CRDTIdentifier id, CRDTShardQuery<?> query, CausalityClock version) {
         ManagedCRDT<?> crdt = getWithoutTouch(id);
         if (crdt == null) {
             return false;
@@ -214,6 +216,13 @@ class LRUObjectsCache {
         }
         entry.touch();
         return entry.getObject();
+    }
+    
+    synchronized public ManagedCRDT<?> getAndTouch(final CRDTIdentifier id, CRDTShardQuery<?> query, CausalityClock version) {
+        if (!has(id, query, version)) {
+            return null;
+        }
+        return getAndTouch(id);
     }
 
     /**

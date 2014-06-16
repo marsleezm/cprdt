@@ -815,6 +815,7 @@ public class SwiftImpl implements SwiftScout, TxnManager, FailOverHandler {
                 logger.warning("Object not found in the cache just after fetch (retrying): " + x);
             } catch (VersionNotFoundException x) {
                 logger.warning("Object not found in appropriate version, probably pruned: " + x);
+                x.printStackTrace();
                 throw x;
             }
         }
@@ -864,28 +865,28 @@ public class SwiftImpl implements SwiftScout, TxnManager, FailOverHandler {
 
         ManagedCRDT<V> crdt = null;
         try {
-            if (objectsCache.has(id, query, queryVersion)) {
-                crdt = (ManagedCRDT<V>) objectsCache.getAndTouch(id);
-            }
+            crdt = (ManagedCRDT<V>) objectsCache.getAndTouch(id, query, queryVersion);
         } catch (ClassCastException x) {
             throw new WrongTypeException(x.getMessage());
         }
         
         if (crdt == null) {
-            if (create && query.isAvailableIn(Shard.hollowShard)) {
+            if (create && query.isAvailableIn(Shard.hollow)) {
                 // If the client requested a hollow replica, we can create it locally
                 // even if it's not in the cache
+                /*
                 final V checkpoint;
                 try {
                     final Constructor<V> constructor = classOfV.getConstructor(CRDTIdentifier.class);
                     checkpoint = constructor.newInstance(id);
-                    checkpoint.setShard(Shard.hollowShard);
-                    crdt = new ManagedCRDT<V>(id, checkpoint, clock, false);
-                    objectsCache.add(crdt, txn == null ? -1L : txn.serial, query, clock);
-                    return crdt.getVersion(clock, txn);
+                    checkpoint.setShard(Shard.hollow);
+                    //crdt = new ManagedCRDT<V>(id, checkpoint, clock, false);
+                    //crdt = objectsCache.add(crdt, txn == null ? -1L : txn.serial, query, clock);
+                    //return crdt.getVersion(clock, txn);
+                    return checkpoint.copyWith(txn, clock);
                 } catch (Exception e) {
                     throw new WrongTypeException(e.getMessage());
-                }
+                }*/
             }
             throw new NoSuchObjectException("Object not available in the cache");
         }
@@ -908,7 +909,6 @@ public class SwiftImpl implements SwiftScout, TxnManager, FailOverHandler {
         try {
             crdtView = crdt.getVersion(clock, txn);
         } catch (IllegalStateException x) {
-
             // No appropriate version found in the object from the cache.
             throw new VersionNotFoundException("Object not available in the cache in appropriate version: "
                     + x.getMessage());

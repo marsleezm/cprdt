@@ -14,7 +14,7 @@ public class ShardTest {
     
     @Test
     public void fullShardTest() {
-        Shard shard = Shard.fullShard;
+        Shard shard = Shard.full;
         assertTrue(shard.contains("Test"));
         assertTrue(shard.containsAll(Collections.singleton("Test")));
         assertTrue(shard.containsAny(Collections.singleton("Test")));
@@ -24,7 +24,7 @@ public class ShardTest {
     
     @Test
     public void hollowShardTest() {
-        Shard shard = Shard.hollowShard;
+        Shard shard = Shard.hollow;
         assertFalse(shard.contains("Test"));
         assertFalse(shard.containsAll(Collections.singleton("Test")));
         assertFalse(shard.containsAny(Collections.singleton("Test")));
@@ -104,13 +104,13 @@ public class ShardTest {
         
         Shard someShard = new Shard(Collections.singleton((Object)"1"));
         Shard otherShard = new Shard(Collections.singleton((Object)"2"));
-        Shard union = Shard.hollowShard.union(Shard.fullShard);
+        Shard union = Shard.hollow.union(Shard.full);
         assertTrue(union.isFull());
-        union = Shard.fullShard.union(Shard.hollowShard);
+        union = Shard.full.union(Shard.hollow);
         assertTrue(union.isFull());
-        union = Shard.fullShard.union(Shard.fullShard);
+        union = Shard.full.union(Shard.full);
         assertTrue(union.isFull());
-        union = Shard.hollowShard.union(Shard.hollowShard);
+        union = Shard.hollow.union(Shard.hollow);
         assertTrue(union.isHollow());
         
         union = someShard.union(otherShard);

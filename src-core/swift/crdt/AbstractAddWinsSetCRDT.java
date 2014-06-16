@@ -50,6 +50,10 @@ public abstract class AbstractAddWinsSetCRDT<V, T extends AbstractAddWinsSetCRDT
     protected AbstractAddWinsSetCRDT(final CRDTIdentifier id) {
         super(id);
     }
+    
+    protected AbstractAddWinsSetCRDT(final CRDTIdentifier id, final TxnHandle txn, final CausalityClock clock) {
+        super(id, txn, clock);
+    }
 
     protected AbstractAddWinsSetCRDT(final CRDTIdentifier id, final TxnHandle txn, final CausalityClock clock, final Shard shard) {
         super(id, txn, clock, shard);

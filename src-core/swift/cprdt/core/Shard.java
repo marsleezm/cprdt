@@ -17,11 +17,8 @@ package swift.cprdt.core;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
-import java.util.ListIterator;
 import java.util.Set;
 
 /**
@@ -37,8 +34,8 @@ public class Shard {
     // comparators
     private IntervalSet interval;
 
-    public static final Shard fullShard = new Shard(true);
-    public static final Shard hollowShard = new Shard();
+    public static final Shard full = new Shard(true);
+    public static final Shard hollow = new Shard();
 
     public Shard() {
         this(false);
@@ -207,6 +204,7 @@ public class Shard {
             Interval next;
             Interval currentInterval = null;
             while (indexThis < this.intervals.size() || indexOther < other.intervals.size()) {
+                // Loop on both this and other intervals in order
                 if (indexThis == this.intervals.size()
                         || (indexOther != other.intervals.size() && other.intervals.get(indexOther).compareTo(
                                 this.intervals.get(indexThis)) < 0)) {
@@ -251,6 +249,8 @@ public class Shard {
             // For the moment from is not inclusive, and to is inclusive
             Comparable<Object> from;
             Comparable<Object> to;
+            
+            // TODO support open intervals
 
             Interval(Comparable<?> from, Comparable<?> to) {
                 this.from = (Comparable<Object>) from;
@@ -266,7 +266,9 @@ public class Shard {
             }
 
             /**
-             * this intersects with other Or they are next to each other
+             * this intersects with other 
+             * Or they are next to each other 
+             * (e.g.: ]1, 2] and ]2, 3] => ]1, 3])
              * 
              * @param other
              * @return

@@ -91,7 +91,7 @@ public abstract class BaseCRDT<V extends BaseCRDT<V>> implements CRDT<V> {
      *            (otherwise null)
      */
     protected BaseCRDT(CRDTIdentifier id, TxnHandle txn, CausalityClock clock) {
-        this(id, txn, clock, Shard.fullShard);
+        this(id, txn, clock, Shard.full);
     }
     
     /**

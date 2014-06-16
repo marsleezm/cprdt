@@ -115,7 +115,7 @@ abstract class AbstractTxnHandle implements TxnHandle, Comparable<AbstractTxnHan
 
     final protected Map<CRDTIdentifier, CRDT<?>> objectViewsCache;
     final protected Map<CRDTIdentifier, Set<CRDTShardQuery<?>>> objectQueriesCache;
-    final protected Set<CRDTIdentifier> toCreate;
+    final protected Set<CRDTIdentifier> created;
 
     /**
      * Creates an update transaction.
@@ -153,7 +153,7 @@ abstract class AbstractTxnHandle implements TxnHandle, Comparable<AbstractTxnHan
         
         this.objectViewsCache = new ConcurrentHashMap<CRDTIdentifier, CRDT<?>>();
         this.objectQueriesCache = new HashMap<CRDTIdentifier, Set<CRDTShardQuery<?>>>();
-        this.toCreate = Collections.newSetFromMap(new ConcurrentHashMap<CRDTIdentifier, Boolean>());
+        this.created = Collections.newSetFromMap(new ConcurrentHashMap<CRDTIdentifier, Boolean>());
         
         initStats(stats);
     }
@@ -189,7 +189,7 @@ abstract class AbstractTxnHandle implements TxnHandle, Comparable<AbstractTxnHan
 
         this.objectViewsCache = new ConcurrentHashMap<CRDTIdentifier, CRDT<?>>();
         this.objectQueriesCache = new HashMap<CRDTIdentifier, Set<CRDTShardQuery<?>>>();
-        this.toCreate = Collections.emptySet();
+        this.created = Collections.emptySet();
 
         this.serial = serialGenerator.getAndIncrement();
         initStats(stats);
@@ -277,7 +277,7 @@ abstract class AbstractTxnHandle implements TxnHandle, Comparable<AbstractTxnHan
             }
         }
         try {
-            getImpl(id, false, classOfV, updatesListener, query);
+            getImpl(id, true, classOfV, updatesListener, query);
         } catch (NoSuchObjectException e) {
             throw new IllegalStateException("Object not found during fetch");
         }
@@ -390,6 +390,8 @@ abstract class AbstractTxnHandle implements TxnHandle, Comparable<AbstractTxnHan
         if (isReadOnly()) {
             return;
         }
+        
+        created.add(id);
 
         final CRDTObjectUpdatesGroup<V> operationsGroup = new CRDTObjectUpdatesGroup<V>(id, timestampMapping,
                 creationState, getUpdatesDependencyClock());
