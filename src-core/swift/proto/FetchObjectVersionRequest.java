@@ -33,9 +33,11 @@ import com.esotericsoftware.kryo.io.Output;
 public class FetchObjectVersionRequest extends ClientRequest implements MetadataSamplable {
     protected CRDTIdentifier uid;
     // TODO: could be derived from client's session?
+    protected CausalityClock requestedVersion;
     protected CausalityClock version;
     
     protected CRDTShardQuery query;
+    protected CausalityClock versionInCache;
     
     // FIXME: make these things optional? Used only by evaluation.
     // protected CausalityClock clock;
@@ -53,11 +55,14 @@ public class FetchObjectVersionRequest extends ClientRequest implements Metadata
     FetchObjectVersionRequest() {
     }
 
-    public FetchObjectVersionRequest(String clientId, boolean disasterSafe, CRDTIdentifier uid, CausalityClock version, CRDTShardQuery<?> query,
+    public FetchObjectVersionRequest(String clientId, boolean disasterSafe, CRDTIdentifier uid, CausalityClock requestedVersion, CausalityClock versionInCache, CRDTShardQuery<?> query,
             final boolean strictUnprunedVersion, boolean subscribe, boolean sendDCVersion) {
         super(clientId, disasterSafe);
         this.uid = uid;
-        this.version = version;
+        this.requestedVersion = requestedVersion;
+        this.versionInCache = versionInCache;
+        this.version = this.requestedVersion.clone();
+        this.version.merge(versionInCache);
         this.query = query;
         this.subscribe = subscribe;
         this.strictUnprunedVersion = strictUnprunedVersion;
@@ -92,12 +97,26 @@ public class FetchObjectVersionRequest extends ClientRequest implements Metadata
     public CRDTIdentifier getUid() {
         return uid;
     }
-
+    
     /**
      * @return minimum version requested
      */
+    public CausalityClock getRequestedVersion() {
+        return requestedVersion;
+    }
+
+    /**
+     * @return minimum version needed
+     */
     public CausalityClock getVersion() {
         return version;
+    }
+    
+    /**
+     * @return version of the cache when the request was sent
+     */
+    public CausalityClock getVersionInCache() {
+        return versionInCache;
     }
     
     public CRDTShardQuery getQuery() {

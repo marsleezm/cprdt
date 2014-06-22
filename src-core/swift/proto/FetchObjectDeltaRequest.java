@@ -38,8 +38,8 @@ public class FetchObjectDeltaRequest extends FetchObjectVersionRequest {
     }
 
     public FetchObjectDeltaRequest(String clientId, boolean disasterSafeSession, CRDTIdentifier id,
-            CausalityClock knownVersion, CausalityClock version, CRDTShardQuery<?> query, boolean strictAvailableVersion, boolean sendDCVersion) {
-        super(clientId, disasterSafeSession, id, version, query, strictAvailableVersion, false, sendDCVersion);
+            CausalityClock knownVersion, CausalityClock version, CausalityClock cachedVersion, CRDTShardQuery<?> query, boolean strictAvailableVersion, boolean sendDCVersion) {
+        super(clientId, disasterSafeSession, id, version, cachedVersion, query, strictAvailableVersion, false, sendDCVersion);
         this.knownVersion = knownVersion;
     }
 

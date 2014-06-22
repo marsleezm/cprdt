@@ -218,6 +218,20 @@ public class CRDTObjectUpdatesGroup<V extends CRDT<V>> {
         
         operations.removeAll(toRemove);
     }
+    
+    /**
+     * Check if any update in this update group affects the given shard
+     * @param shard
+     * @return
+     */
+    public boolean affectsShard(Shard shard) {
+        for (final CRDTUpdate<V> u : operations) {
+            if (shard.containsAny(u.affectedParticles())) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     /**
      * @return true if this is a create operations containing initial state

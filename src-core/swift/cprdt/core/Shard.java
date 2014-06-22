@@ -30,7 +30,7 @@ public class Shard {
     private boolean isFull;
     private Set<Object> particles;
 
-    // TODO add properties support, maybe mutiple intervals with different
+    // TODO add properties support, maybe multiple intervals with different
     // comparators
     private IntervalSet interval;
 
@@ -60,7 +60,7 @@ public class Shard {
     }
     
     public String toString() {
-        return interval.toString();
+        return particles.toString() + " ; " +interval.toString();
     }
 
     public boolean isFull() {

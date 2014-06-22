@@ -300,7 +300,8 @@ final public class DCSurrogate extends SwiftProtocolHandler {
                 if (cltLastSeqNo != null)
                     crdt.augmentWithScoutClockWithoutMappings(cltLastSeqNo);
                 
-                crdt.applyShardQuery(request.getQuery(), request.getVersion());
+                crdt.applyShardQuery(request.getQuery(), request.getRequestedVersion());
+                crdt.pruneUpdates(request.getVersionInCache());
                 
                 final FetchObjectVersionReply.FetchStatus status = (cmp == CMP_CLOCK.CMP_ISDOMINATED || cmp == CMP_CLOCK.CMP_CONCURRENT) ? FetchStatus.VERSION_NOT_FOUND
                         : FetchStatus.OK;

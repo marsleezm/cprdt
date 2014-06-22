@@ -16,6 +16,7 @@
  *****************************************************************************/
 package swift.crdt;
 
+import java.util.Collections;
 import java.util.Set;
 
 import swift.clocks.TripleTimestamp;
@@ -54,5 +55,10 @@ public class AddWinsSetRemoveUpdate<V, T extends AbstractAddWinsSetCRDT<V, T>> e
     @Override
     public Object getValueWithoutMetadata() {
         return val;
+    }
+
+    @Override
+    public Set<Object> affectedParticles() {
+        return Collections.singleton((Object) val);
     }
 }

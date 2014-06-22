@@ -1,11 +1,13 @@
 package swift.cprdt.core;
 
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableSet;
+import java.util.SortedSet;
 import java.util.TreeSet;
 
 import swift.crdt.core.Copyable;
@@ -38,6 +40,10 @@ public class SortedIndex<K,V extends Comparable<V>> implements Copyable {
 	    K oldKey = keyValues.get(value);
 	    
 	    if (oldKey != null) {
+	        if (oldKey.equals(newKey)) {
+	            // No actual update to do
+	            return;
+	        }
     	    Entry oldEntry = new Entry(oldKey, value);
             index.remove(oldEntry);
 	    }
@@ -54,10 +60,6 @@ public class SortedIndex<K,V extends Comparable<V>> implements Copyable {
 	        Entry entry = new Entry(key, value);
     	    index.remove(entry);
 	    }
-	}
-	
-	public void add(K key, V value) {
-	    update(key, value);
 	}
 	
 	public List<V> find(V from, boolean fromInclusive, V to, boolean toInclusive) {
@@ -126,6 +128,18 @@ public class SortedIndex<K,V extends Comparable<V>> implements Copyable {
 	    }
 	    return list;
 	}
+	
+	public SortedSet<Entry> entrySet() {
+	    return entrySet(false);
+	}
+	
+	public SortedSet<Entry> entrySet(boolean reversed) {
+        if (reversed) {
+            return Collections.unmodifiableSortedSet(this.index.descendingSet());
+        } else {
+            return Collections.unmodifiableSortedSet(this.index);
+        }
+    }
 	
 	public SortedIndex<K,V> copy(V fromValue, boolean fromInclusive, V toValue, boolean toInclusive, boolean reversed) {
 	    TreeSet<Entry> newIndex = new TreeSet<Entry>(this.subSet(fromValue, fromInclusive, toValue, toInclusive, reversed));

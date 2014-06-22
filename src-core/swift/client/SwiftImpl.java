@@ -21,6 +21,7 @@ import static sys.net.api.Networking.Networking;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -51,6 +52,7 @@ import swift.clocks.ReturnableTimestampSourceDecorator;
 import swift.clocks.Timestamp;
 import swift.clocks.TimestampMapping;
 import swift.cprdt.FullShardQuery;
+import swift.cprdt.HollowShardQuery;
 import swift.cprdt.core.CRDTShardQuery;
 import swift.cprdt.core.Shard;
 import swift.crdt.core.CRDT;
@@ -279,6 +281,9 @@ public class SwiftImpl implements SwiftScout, TxnManager, FailOverHandler {
 
     SortedSet<CRDTIdentifier> notified = new TreeSet<CRDTIdentifier>();
     private final boolean assumeAtomicCausalNotifications;
+    
+    // Latest version that was requested (if the object is not in the cache)
+    private final Map<CRDTIdentifier, CausalityClock> requestedVersions;
 
     SwiftImpl(final RpcEndpoint localEndpoint, final Endpoint[] serverEndpoints, final LRUObjectsCache objectsCache,
             final SwiftOptions options) {
@@ -424,6 +429,8 @@ public class SwiftImpl implements SwiftScout, TxnManager, FailOverHandler {
         clockSkewEstimate();
         
         getDCClockEstimates();
+        
+        this.requestedVersions = new HashMap<CRDTIdentifier, CausalityClock>();
     }
 
     protected synchronized void tryPrune() {
@@ -874,6 +881,7 @@ public class SwiftImpl implements SwiftScout, TxnManager, FailOverHandler {
             if (create && query.isAvailableIn(Shard.hollow)) {
                 // If the client requested a hollow replica, we can create it locally
                 // even if it's not in the cache
+                // TODO (need to register creation somehow)
                 /*
                 final V checkpoint;
                 try {
@@ -932,6 +940,32 @@ public class SwiftImpl implements SwiftScout, TxnManager, FailOverHandler {
         }
         return crdtView;
     }
+    
+    /**
+     * 
+     * @param id
+     * @return
+     */
+    private synchronized CausalityClock getKnownVersion(CRDTIdentifier id, CausalityClock requestedVersion) {
+        ManagedCRDT crdt = objectsCache.getWithoutTouch(id);
+        CausalityClock version;
+        version = requestedVersions.get(id);
+        if (version == null) {
+            version = requestedVersion.clone();
+        } else {
+            if (crdt == null) {
+                // If a newer version was evicted from the cache
+                version.intersect(requestedVersion);
+            }
+        }
+        if (crdt != null) {
+            // In case the object was evicted then put back in the cache
+            // in a lower version
+            version.intersect(crdt.getClock());
+        }
+        requestedVersions.put(id, version);
+        return version.clone();
+    }
 
     private <V extends CRDT<V>> void fetchObjectVersion(final AbstractTxnHandle txn, CRDTIdentifier id, boolean create,
             Class<V> classOfV, final CausalityClock version, CRDTShardQuery<V> query, final boolean strictUnprunedVersion,
@@ -957,10 +991,14 @@ public class SwiftImpl implements SwiftScout, TxnManager, FailOverHandler {
         // Record and drop scout's entry from the requested clock (efficiency?).
         final Timestamp requestedScoutVersion = version.getLatest(scoutId);
         version.drop(this.scoutId);
+        
+        // To allow pruning updates from the reply
+        final CausalityClock versionInCache = getKnownVersion(id, version);
+        
         // TODO: do we always need a DC vector? Not necessarily.
         final boolean requestDCVector = true;
         final FetchObjectVersionRequest fetchRequest = new FetchObjectVersionRequest(scoutId, disasterSafe, id,
-                version, query, strictUnprunedVersion, subscribeUpdates, requestDCVector);
+                version, versionInCache, query, strictUnprunedVersion, subscribeUpdates, requestDCVector);
 
         doFetchObjectVersionOrTimeout(txn, fetchRequest, classOfV, create, requestedScoutVersion);
     }
@@ -1043,7 +1081,7 @@ public class SwiftImpl implements SwiftScout, TxnManager, FailOverHandler {
             } catch (Exception e) {
                 throw new WrongTypeException(e.getMessage());
             }
-            final CausalityClock clock = request.getVersion().clone();
+            final CausalityClock clock = request.getRequestedVersion().clone();
             if (fetchReply.getEstimatedDisasterDurableCommittedVersion() != null) {
                 clock.merge(fetchReply.getEstimatedDisasterDurableCommittedVersion());
             }
@@ -1112,17 +1150,26 @@ public class SwiftImpl implements SwiftScout, TxnManager, FailOverHandler {
             }
             */
             ManagedCRDT<V> cacheCRDT;
-            CausalityClock queriedVersion;
-            if (request.getVersion() == null) {
-                queriedVersion = crdt.getClock();
-            } else {
-                queriedVersion = request.getVersion();
-            }
+            CausalityClock queriedVersion = request.getRequestedVersion();
             try {
                 cacheCRDT = (ManagedCRDT)objectsCache.add(crdt, txn == null ? -1L : txn.serial, request.getQuery(), queriedVersion);
-            } catch (Exception e) {
+            } catch (ClassCastException e) {
                 throw new WrongTypeException(e.getMessage());
             }
+            
+            if (fetchReply.getStatus() != FetchStatus.VERSION_NOT_FOUND) {
+                CausalityClock version;
+                version = requestedVersions.get(request.getUid());
+                if (version == null) {
+                    version = request.getVersion();
+                    requestedVersions.put(request.getUid(), version);
+                } else {
+                    if (version.compareTo(request.getVersion()).is(CMP_CLOCK.CMP_ISDOMINATED, CMP_CLOCK.CMP_CONCURRENT)) {
+                        version.merge(request.getVersion());
+                    }
+                }
+            }
+            
             // Apply any local updates that may not be present in received
             // version.
             for (final AbstractTxnHandle localTxn : globallyCommittedUnstableTxns) {

@@ -20,6 +20,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Map;
 
 import swift.clocks.CausalityClock;
@@ -78,7 +79,12 @@ public class ManagedCRDT<V extends CRDT<V>> {
     // unnecessary information (dependency clocks and ids)
     protected List<CRDTObjectUpdatesGroup<V>> strippedLog;
     
+    // dependency clocks of the updates pruned by a shard
+    // only set if some update pruning was done
+    protected Map<Timestamp,CausalityClock> dependencyClocks;
+
     public ManagedCRDT() {
+        this.dependencyClocks = null;
     }
 
     /**
@@ -105,6 +111,8 @@ public class ManagedCRDT<V extends CRDT<V>> {
         this.clock = clock;
         this.pruneClock = ClockFactory.newClock();
         this.registeredInStore = registeredInStore;
+        
+        this.dependencyClocks = null;
     }
 
     /**
@@ -231,6 +239,39 @@ public class ManagedCRDT<V extends CRDT<V>> {
         }
     }
 
+    private void insertUpdate(ListIterator<CRDTObjectUpdatesGroup<V>> log, CRDTObjectUpdatesGroup<V> update) {
+        CausalityClock updateDependency = dependencyClocks.get(update.getClientTimestamp());
+        // Skip the updates which are causally before this one
+        while (log.hasNext()) {
+            CRDTObjectUpdatesGroup<V> next = log.next();
+            CausalityClock clock = dependencyClocks.get(next.getClientTimestamp());
+            if (clock == null) {
+                break;
+            }
+            if (clock.compareTo(updateDependency).is(CMP_CLOCK.CMP_ISDOMINATED)) {
+                log.previous();
+                break;
+            }
+        }
+        // Add the update at the correct position
+        log.add(update);
+    }
+
+    private void mergeUpdates(ListIterator<CRDTObjectUpdatesGroup<V>> thisLog,
+            ListIterator<CRDTObjectUpdatesGroup<V>> otherLog,
+            Map<Timestamp, CRDTObjectUpdatesGroup<V>> thisTimestampToUpdatesMap, CausalityClock commonClock) {
+        while (otherLog.hasNext()) {
+            CRDTObjectUpdatesGroup<V> update = otherLog.next();
+            if (thisTimestampToUpdatesMap.get(update.getClientTimestamp()) == null) {
+                // This update is not in the log
+                if (update.anyTimestampIncluded(commonClock)) {
+                    // This update should be added to the log
+                    insertUpdate(thisLog, update);
+                }
+            }
+        }
+    }
+
     /**
      * Merges the state of this managed object with other managed object of the
      * same identity and type.
@@ -253,10 +294,15 @@ public class ManagedCRDT<V extends CRDT<V>> {
             throw new IllegalArgumentException("Refusing to merge two objects with different identities: " + id
                     + " vs " + other.id);
         }
+
+        final Map<Timestamp, CRDTObjectUpdatesGroup<V>> thisTimestampToUpdatesMap = getTimestampToUpdatesMap(strippedLog);
         
+        List<CRDTObjectUpdatesGroup<V>> otherLog = other.strippedLog;
+        V otherCheckpoint = other.checkpoint;
+
         if (!(this.getShard().isFull() && other.getShard().isFull())) {
             // Need to merge the shards at checkpoint
-            
+
             // First get the checkpoints to a common version
             switch (pruneClock.compareTo(other.pruneClock)) {
             case CMP_DOMINATES:
@@ -268,21 +314,44 @@ public class ManagedCRDT<V extends CRDT<V>> {
                 break;
             case CMP_CONCURRENT:
                 throw new IllegalStateException(
-                      "Unsupported attempt to merge partial objects with concurrent pruning point clocks");
+                        "Unsupported attempt to merge partial objects with concurrent pruning point clocks");
             }
-            
+
             // Merge these pruning points
             this.checkpoint.mergeSameVersion(other.checkpoint);
-            
+
             this.checkpoint.setShard(this.getShard().union(other.getShard()));
+
+            otherCheckpoint = this.checkpoint;
             
-            other.checkpoint = this.checkpoint;
+            if (this.dependencyClocks != null || other.dependencyClocks != null) {
+                // Merge updates log to re-add updates which were pruned
+                final Map<Timestamp, CRDTObjectUpdatesGroup<V>> otherTimestampToUpdatesMap = getTimestampToUpdatesMap(other.strippedLog);
+    
+                CausalityClock commonClock = this.getClock().clone();
+                commonClock.intersect(other.getClock());
+                
+                otherLog = new LinkedList<CRDTObjectUpdatesGroup<V>>(other.strippedLog);
+    
+                ListIterator<CRDTObjectUpdatesGroup<V>> thisLogIt = this.strippedLog.listIterator();
+                ListIterator<CRDTObjectUpdatesGroup<V>> otherLogIt = otherLog.listIterator();
+                
+                if (this.dependencyClocks == null) {
+                    this.dependencyClocks = new HashMap<Timestamp, CausalityClock>();
+                }
+                if (other.dependencyClocks != null) {
+                    this.dependencyClocks.putAll(other.dependencyClocks);
+                }
+    
+                // From other into this
+                mergeUpdates(thisLogIt, otherLogIt, thisTimestampToUpdatesMap, commonClock);
+                // From this into other
+                mergeUpdates(otherLogIt, thisLogIt, otherTimestampToUpdatesMap, commonClock);
+            }
         }
 
         // This is a somewhat messy best-effort logic, since merge is not
         // exactly symmetric for op-based.
-
-        final Map<Timestamp, CRDTObjectUpdatesGroup<V>> thisTimestampToUpdatesMap = getTimestampToUpdatesMap(strippedLog);
         switch (getClock().compareTo(other.getClock())) {
         case CMP_DOMINATES:
         case CMP_EQUALS:
@@ -291,7 +360,7 @@ public class ManagedCRDT<V extends CRDT<V>> {
             // favor of "this" over "other".
             // Merge timestamp mappings. (not sure if this is strictly
             // necessary, but let's do it)
-            for (final CRDTObjectUpdatesGroup<V> otherUpdate : other.strippedLog) {
+            for (final CRDTObjectUpdatesGroup<V> otherUpdate : otherLog) {
                 final CRDTObjectUpdatesGroup<V> localMatch = thisTimestampToUpdatesMap.get(otherUpdate
                         .getClientTimestamp());
                 if (localMatch != null) {
@@ -301,11 +370,11 @@ public class ManagedCRDT<V extends CRDT<V>> {
             break;
         case CMP_ISDOMINATED:
             // The exact opposite of the above case.
-            this.checkpoint = other.checkpoint.copy();
+            this.checkpoint = otherCheckpoint.copy();
             this.pruneClock = other.pruneClock.clone();
             this.clock = other.clock.clone();
             final List<CRDTObjectUpdatesGroup<V>> newLog = new LinkedList<CRDTObjectUpdatesGroup<V>>();
-            for (final CRDTObjectUpdatesGroup<V> otherUpdate : other.strippedLog) {
+            for (final CRDTObjectUpdatesGroup<V> otherUpdate : otherLog) {
                 final CRDTObjectUpdatesGroup<V> copiedOtherUpdate = otherUpdate.strippedWithCopiedTimestampMappings();
                 newLog.add(copiedOtherUpdate);
                 final CRDTObjectUpdatesGroup<V> localMatch = thisTimestampToUpdatesMap.get(otherUpdate
@@ -328,13 +397,13 @@ public class ManagedCRDT<V extends CRDT<V>> {
                 throw new IllegalStateException(
                         "Unsupported attempt to merge objects with concurrent clocks and a clock concurrent to pruning point");
             }
-            
-            this.checkpoint = other.checkpoint;
+
+            this.checkpoint = otherCheckpoint;
             this.pruneClock = other.pruneClock.clone();
             this.clock.merge(other.clock);
             final List<CRDTObjectUpdatesGroup<V>> mergedLog = new LinkedList<CRDTObjectUpdatesGroup<V>>();
             // Copy other's log and merge timestamps with all local updates.
-            for (final CRDTObjectUpdatesGroup<V> otherUpdate : other.strippedLog) {
+            for (final CRDTObjectUpdatesGroup<V> otherUpdate : otherLog) {
                 final CRDTObjectUpdatesGroup<V> copiedOtherUpdate = otherUpdate.strippedWithCopiedTimestampMappings();
                 mergedLog.add(copiedOtherUpdate);
                 final CRDTObjectUpdatesGroup<V> localMatch = thisTimestampToUpdatesMap.get(otherUpdate
@@ -419,14 +488,15 @@ public class ManagedCRDT<V extends CRDT<V>> {
 
         return newOperation;
     }
-    
+
     /**
-     * @return associated shard: which part of the CRDT is available in that replica
+     * @return associated shard: which part of the CRDT is available in that
+     *         replica
      */
     public Shard getShard() {
         return checkpoint.getShard();
     }
-    
+
     /**
      * Apply the given shard query at the checkpoint of the managed CRDT
      * 
@@ -441,7 +511,40 @@ public class ManagedCRDT<V extends CRDT<V>> {
             versionView = getReadOnlyVersion(onVersion);
         }
         checkpoint = query.executeAt(versionView, checkpoint);
-        // TODO remove non needed updates
+    }
+
+    /**
+     * Remove the updates which are not relevant to the shard (do not affect it)
+     * and that were made before knownVersion
+     * 
+     * @param knownVersion
+     */
+    public void pruneUpdates(CausalityClock knownVersion) {
+        if (this.getShard().isFull()) {
+            return;
+        }
+        
+        // Keep only the updates relevant to the shard which are < knownVersion
+        // But keep all updates >= knownVersion
+        dependencyClocks = new HashMap<Timestamp,CausalityClock>();
+        
+        if (this.getShard().isHollow()) {
+            strippedLog = new LinkedList<CRDTObjectUpdatesGroup<V>>();
+            return;
+        }
+        
+        CausalityClock updateClock = pruneClock.clone();
+        for (final Iterator<CRDTObjectUpdatesGroup<V>> updatesIter = strippedLog.iterator(); updatesIter.hasNext();) {
+            final CRDTObjectUpdatesGroup<V> updates = updatesIter.next();
+            updateClock.record(updates.getClientTimestamp());
+            if (updates.anyTimestampIncluded(knownVersion)) {
+                if (!updates.affectsShard(getShard())) {
+                    updatesIter.remove();
+                } else {
+                    dependencyClocks.put(updates.getClientTimestamp(), updateClock.clone());
+                }
+            }
+        }
     }
 
     /**
@@ -491,7 +594,7 @@ public class ManagedCRDT<V extends CRDT<V>> {
         // WISHME: cache the most recent version? it should be easy.
         return getVersion(getClock(), txn);
     }
-    
+
     /**
      * Same as getVersion but without txn handler
      * 
@@ -577,6 +680,9 @@ public class ManagedCRDT<V extends CRDT<V>> {
         result.registeredInStore = registeredInStore;
         result.checkpoint = checkpoint.copy();
         result.strippedLog = new LinkedList<CRDTObjectUpdatesGroup<V>>();
+        if (dependencyClocks != null) {
+            result.dependencyClocks = new HashMap<Timestamp, CausalityClock>(dependencyClocks);
+        }
         for (final CRDTObjectUpdatesGroup<V> updates : strippedLog) {
             if (updates.anyTimestampIncluded(result.pruneClock)) {
                 updates.applyTo(result.checkpoint);

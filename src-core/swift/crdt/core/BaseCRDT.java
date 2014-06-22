@@ -22,9 +22,7 @@ import swift.clocks.CausalityClock;
 import swift.clocks.TripleTimestamp;
 import swift.cprdt.core.CRDTShardQuery;
 import swift.cprdt.core.Shard;
-import swift.cprdt.core.ShardFull;
 import swift.exceptions.NetworkException;
-import swift.exceptions.NoSuchObjectException;
 import swift.exceptions.VersionNotFoundException;
 import swift.exceptions.WrongTypeException;
 
@@ -157,6 +155,7 @@ public abstract class BaseCRDT<V extends BaseCRDT<V>> implements CRDT<V> {
         this.shard = shard;
     }
     
+    @SuppressWarnings("unchecked")
     @Override
     public void fetch(Set<?> particles) throws VersionNotFoundException, NetworkException {
         try {
@@ -165,6 +164,7 @@ public abstract class BaseCRDT<V extends BaseCRDT<V>> implements CRDT<V> {
             throw new IllegalStateException(e.getMessage());
         }
     }
+    @SuppressWarnings("unchecked")
     @Override
     public void fetch(CRDTShardQuery<V> query) throws VersionNotFoundException, NetworkException {
         try {

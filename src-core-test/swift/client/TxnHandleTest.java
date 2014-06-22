@@ -15,6 +15,7 @@ import swift.crdt.core.SwiftSession;
 import swift.crdt.core.TxnHandle;
 import swift.exceptions.NetworkException;
 import swift.exceptions.NoSuchObjectException;
+import swift.exceptions.SwiftException;
 import swift.exceptions.VersionNotFoundException;
 import swift.exceptions.WrongTypeException;
 
@@ -59,7 +60,7 @@ public class TxnHandleTest {
             }
             assertFalse(objectNotFound);
             
-        } catch (Exception e) {
+        } catch (SwiftException e) {
             e.printStackTrace();
         }
     }
@@ -102,7 +103,7 @@ public class TxnHandleTest {
             assertTrue(set.getShard().contains("1"));
             assertTrue(set.has("1"));
             txn.commit();
-        } catch (Exception e) {
+        } catch (SwiftException e) {
             e.printStackTrace();
         }
     }

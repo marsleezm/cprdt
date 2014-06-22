@@ -53,6 +53,7 @@ import swift.crdt.core.ManagedCRDT;
 import swift.crdt.core.ObjectUpdatesListener;
 import swift.crdt.core.TxnHandle;
 import swift.crdt.core.TxnStatus;
+import swift.cprdt.FractionShardQuery;
 import swift.cprdt.core.CRDTShardQuery;
 import swift.exceptions.NetworkException;
 import swift.exceptions.NoSuchObjectException;
@@ -301,6 +302,31 @@ public class ManagedCRDTTest {
 
         a.prune(concurrentClock, false);
     }
+    
+    @Test
+    public void testPruneUpdates() {
+        a.execute(createUpdatesGroup("X", ClockFactory.newClock(), 1), CRDTOperationDependencyPolicy.CHECK);
+        
+        a.execute(createUpdatesGroup("Y", ClockFactory.newClock(), 2), CRDTOperationDependencyPolicy.CHECK);
+        
+        a.applyShardQuery(new FractionShardQuery<AddWinsSetCRDT<Integer>>(Collections.singleton(1)), a.getClock());
+        a.pruneUpdates(a.getClock());
+        
+        assertEquals(1, a.getInternalLog().size());
+    }
+    
+    @Test
+    public void testPruneUpdatesAtKnownVersion() {
+        a.execute(createUpdatesGroup("X", ClockFactory.newClock(), 1), CRDTOperationDependencyPolicy.CHECK);
+        CausalityClock v1 = a.getClock().clone();
+        
+        a.execute(createUpdatesGroup("Y", ClockFactory.newClock(), 2), CRDTOperationDependencyPolicy.CHECK);
+        
+        a.applyShardQuery(new FractionShardQuery<AddWinsSetCRDT<Integer>>(Collections.singleton(1)), a.getClock());
+        a.pruneUpdates(v1);
+        
+        assertEquals(2, a.getInternalLog().size());
+    }
 
     @Test
     public void testMergeConcurrent() {
@@ -413,6 +439,67 @@ public class ManagedCRDTTest {
         referenceViaOriginalMapping.record(new Timestamp("DC2", 1));
         assertEquals(new HashSet<Integer>(Arrays.asList(1, 2)), a.getVersion(referenceViaOriginalMapping, null)
                 .getValue());
+    }
+    
+    @Test
+    public void testMergeDifferentShards() {
+        final CRDTObjectUpdatesGroup<AddWinsSetCRDT<Integer>> groupX1 = createUpdatesGroup("X",
+                ClockFactory.newClock(), 1);
+        final CRDTObjectUpdatesGroup<AddWinsSetCRDT<Integer>> groupY2 = createUpdatesGroup("Y",
+                ClockFactory.newClock(), 2);
+
+        a.execute(groupX1, CRDTOperationDependencyPolicy.CHECK);
+        a.execute(groupY2, CRDTOperationDependencyPolicy.CHECK);
+        b.execute(groupX1, CRDTOperationDependencyPolicy.CHECK);
+        
+        a.applyShardQuery(new FractionShardQuery<AddWinsSetCRDT<Integer>>(Collections.singleton(2)), a.getClock());
+        b.applyShardQuery(new FractionShardQuery<AddWinsSetCRDT<Integer>>(Collections.singleton(1)), b.getClock());
+        
+        ManagedCRDT<AddWinsSetCRDT<Integer>> aCopy = a.copyWithRestrictedVersioning(a.getPruneClock());
+        a.merge(b);
+
+        assertEquals(2, a.getInternalLog().size());
+        assertEquals(CMP_CLOCK.CMP_EQUALS, ClockFactory.newClock().compareTo(a.getPruneClock()));
+        assertTrue(a.getClock().includes(groupX1.getClientTimestamp()));
+        assertEquals(new HashSet<Integer>(Arrays.asList(1, 2)), a.getLatestVersion(null).getValue());
+
+        b.merge(aCopy);
+        assertEquals(2, b.getInternalLog().size());
+        assertEquals(CMP_CLOCK.CMP_EQUALS, ClockFactory.newClock().compareTo(b.getPruneClock()));
+        assertTrue(b.getClock().includes(groupX1.getClientTimestamp()));
+        assertEquals(new HashSet<Integer>(Arrays.asList(1, 2)), b.getLatestVersion(null).getValue());
+    }
+    
+    @Test
+    public void testMergeDifferentShardsWithUpdatesPruning() {
+        final CRDTObjectUpdatesGroup<AddWinsSetCRDT<Integer>> groupX1 = createUpdatesGroup("X",
+                ClockFactory.newClock(), 1);
+        final CRDTObjectUpdatesGroup<AddWinsSetCRDT<Integer>> groupY2 = createUpdatesGroup("Y",
+                ClockFactory.newClock(), 2);
+
+        a.execute(groupX1, CRDTOperationDependencyPolicy.CHECK);
+        a.execute(groupY2, CRDTOperationDependencyPolicy.CHECK);
+        b.execute(groupX1, CRDTOperationDependencyPolicy.CHECK);
+        
+        a.applyShardQuery(new FractionShardQuery<AddWinsSetCRDT<Integer>>(Collections.singleton(2)), a.getClock());
+        a.pruneUpdates(a.getClock());
+        
+        b.applyShardQuery(new FractionShardQuery<AddWinsSetCRDT<Integer>>(Collections.singleton(1)), b.getClock());
+        b.pruneUpdates(b.getClock());
+        
+        ManagedCRDT<AddWinsSetCRDT<Integer>> aCopy = a.copyWithRestrictedVersioning(a.getPruneClock());
+        a.merge(b);
+
+        assertEquals(2, a.getInternalLog().size());
+        assertEquals(CMP_CLOCK.CMP_EQUALS, ClockFactory.newClock().compareTo(a.getPruneClock()));
+        assertTrue(a.getClock().includes(groupX1.getClientTimestamp()));
+        assertEquals(new HashSet<Integer>(Arrays.asList(1, 2)), a.getLatestVersion(null).getValue());
+
+        b.merge(aCopy);
+        assertEquals(2, b.getInternalLog().size());
+        assertEquals(CMP_CLOCK.CMP_EQUALS, ClockFactory.newClock().compareTo(b.getPruneClock()));
+        assertTrue(b.getClock().includes(groupX1.getClientTimestamp()));
+        assertEquals(new HashSet<Integer>(Arrays.asList(1, 2)), b.getLatestVersion(null).getValue());
     }
 
     @Test
