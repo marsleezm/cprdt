@@ -1,10 +1,10 @@
 package swift.application.reddit.crdt;
 
-public class DecoratedNode<V> {
-	private Node<V> node;
+public class DecoratedNode<T extends AbstractNode<T,V>,V> {
+	private T node;
 	private boolean isTombstone;
 	
-	public DecoratedNode(Node<V> node, boolean isTombstone) {
+	public DecoratedNode(T node, boolean isTombstone) {
 		this.node = node;
 		this.isTombstone = isTombstone;
 	}
@@ -13,7 +13,7 @@ public class DecoratedNode<V> {
 		return isTombstone;
 	}
 	
-	public Node<V> getNode() {
+	public T getNode() {
 		return node;
 	}
 }

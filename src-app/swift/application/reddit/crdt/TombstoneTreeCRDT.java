@@ -6,6 +6,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+import swift.application.reddit.cprdt.SortedNode;
 import swift.clocks.CausalityClock;
 import swift.crdt.core.BaseCRDT;
 import swift.crdt.core.CRDTIdentifier;
@@ -145,10 +146,10 @@ public class TombstoneTreeCRDT<V> extends BaseCRDT<TombstoneTreeCRDT<V>> {
     }
 
     @Override
-    public Set<DecoratedNode<V>> getValue() {
-        HashSet<DecoratedNode<V>> value = new HashSet<DecoratedNode<V>>();
+    public Set<DecoratedNode<Node<V>,V>> getValue() {
+        HashSet<DecoratedNode<Node<V>,V>> value = new HashSet<DecoratedNode<Node<V>,V>>();
         for (Node<V> node: nodes) {
-            value.add(new DecoratedNode<V>(node, tombstones.contains(node)));
+            value.add(new DecoratedNode<Node<V>,V>(node, tombstones.contains(node)));
         }
         return value;
     }
@@ -161,10 +162,10 @@ public class TombstoneTreeCRDT<V> extends BaseCRDT<TombstoneTreeCRDT<V>> {
         return Collections.unmodifiableSet(children.get(node));
     }
     
-    public Set<DecoratedNode<V>> decoratedChildrenOf(Node<V> node) {
-        HashSet<DecoratedNode<V>> decoratedChildren = new HashSet<DecoratedNode<V>>();
+    public Set<DecoratedNode<Node<V>,V>> decoratedChildrenOf(Node<V> node) {
+        HashSet<DecoratedNode<Node<V>,V>> decoratedChildren = new HashSet<DecoratedNode<Node<V>,V>>();
         for (Node<V> n: children.get(node)) {
-            decoratedChildren.add(new DecoratedNode<V>(n, tombstones.contains(node)));
+            decoratedChildren.add(new DecoratedNode<Node<V>,V>(n, tombstones.contains(node)));
         }
         return decoratedChildren;
     }

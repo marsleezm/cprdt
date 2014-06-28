@@ -5,6 +5,7 @@ import java.util.List;
 import swift.application.reddit.cprdt.SortedNode;
 import swift.application.reddit.crdt.DecoratedNode;
 import swift.application.reddit.crdt.VoteDirection;
+import swift.crdt.core.SwiftSession;
 
 /*
  * Trying to replicate (partially) the API: http://www.reddit.com/dev/api
@@ -12,6 +13,9 @@ import swift.application.reddit.crdt.VoteDirection;
  */
 
 public interface RedditAPI {
+    
+    public SwiftSession getSwift();
+    
     // Account
 
     /*
@@ -85,5 +89,5 @@ public interface RedditAPI {
     /*
      * http://www.reddit.com/dev/api#GET_comments_{article}
      */
-    public SortedTree<DecoratedNode<Comment>> comments(Link link, SortedNode<Comment> from, int context, SortingOrder sort, int limit);
+    public SortedTree<DecoratedNode<SortedNode<Comment>,Comment>> comments(Link link, SortedNode<Comment> from, int context, SortingOrder sort, int limit);
 }

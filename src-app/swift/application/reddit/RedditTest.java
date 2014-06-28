@@ -28,15 +28,14 @@ public class RedditTest {
     }
 
     public static void main(String[] args) {
-        DCSequencerServer.main(new String[] { "-name", sequencerName });
-        DCServer.main(new String[] { sequencerName });
-
         Sys.init();
+        
+        DCSequencerServer.main(new String[] { "-name", "X0" });
+        DCServer.main(new String[] { "-servers", "localhost" });
+        
         SwiftSession clientServer = SwiftImpl.newSingleSessionInstance(new SwiftOptions("localhost",
                 DCConstants.SURROGATE_PORT));
-
-        RedditPartialReplicas client = new RedditPartialReplicas(clientServer, IsolationLevel.SNAPSHOT_ISOLATION,
-                CachePolicy.STRICTLY_MOST_RECENT, generateClientId());
+        RedditPartialReplicas client = new RedditPartialReplicas(clientServer, IsolationLevel.SNAPSHOT_ISOLATION, CachePolicy.STRICTLY_MOST_RECENT, clientServer.getSessionId());
 
         client.register("Alice", "Alice", "alice@test.com");
         client.register("Bob", "Bob", "bob@test.com");
@@ -50,6 +49,7 @@ public class RedditTest {
 
         for (int i = 1; i <= 500; i++) {
             client.submit("link", "dev", "Post number " + i, date, "http://test.com/" + i, null);
+            System.out.println("Submitted link " + i);
             date += 60000; // One minute
         }
 
@@ -71,7 +71,7 @@ public class RedditTest {
         }
 
         client.logout();
-
+        
         clientServer.stopScout(true);
         System.exit(0);
     }

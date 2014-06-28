@@ -150,7 +150,7 @@ public class VoteableTreeCPRDT<V extends Date<V>, U> extends BaseCRDT<VoteableTr
 
     public VoteableTreeCPRDT(CRDTIdentifier id) {
         super(id);
-        this.root = new SortedNode<V>(null, null);
+        this.root = SortedNode.getRoot();
         this.nodes = new HashSet<SortedNode<V>>();
         this.tombstones = new HashSet<SortedNode<V>>();
         this.voteCounters = new HashMap<SortedNode<V>, VoteCounter<U>>();
@@ -161,7 +161,7 @@ public class VoteableTreeCPRDT<V extends Date<V>, U> extends BaseCRDT<VoteableTr
     private VoteableTreeCPRDT(CRDTIdentifier id, TxnHandle txn, CausalityClock clock, Shard shard,
             Set<SortedNode<V>> nodes, Set<SortedNode<V>> tombstones, Map<SortedNode<V>, VoteCounter<U>> voteCounters) {
         super(id, txn, clock, shard);
-        this.root = new SortedNode<V>(null, null);
+        this.root = SortedNode.getRoot();
         this.nodes = new HashSet<SortedNode<V>>(nodes);
         this.tombstones = new HashSet<SortedNode<V>>(tombstones);
         this.voteCounters = voteCounters;
@@ -286,10 +286,10 @@ public class VoteableTreeCPRDT<V extends Date<V>, U> extends BaseCRDT<VoteableTr
     }
 
     @Override
-    public Set<DecoratedNode<V>> getValue() {
-        HashSet<DecoratedNode<V>> value = new HashSet<DecoratedNode<V>>();
+    public Set<DecoratedNode<SortedNode<V>,V>> getValue() {
+        HashSet<DecoratedNode<SortedNode<V>,V>> value = new HashSet<DecoratedNode<SortedNode<V>,V>>();
         for (SortedNode<V> node : nodes) {
-            value.add(new DecoratedNode<V>(node, tombstones.contains(node)));
+            value.add(new DecoratedNode<SortedNode<V>,V>(node, tombstones.contains(node)));
         }
         return value;
     }
@@ -351,10 +351,10 @@ public class VoteableTreeCPRDT<V extends Date<V>, U> extends BaseCRDT<VoteableTr
         return index.entrySet(reversed);
     }
 
-    public Set<DecoratedNode<V>> decoratedChildrenOf(SortedNode<V> node) {
-        HashSet<DecoratedNode<V>> decoratedChildren = new HashSet<DecoratedNode<V>>();
+    public Set<DecoratedNode<SortedNode<V>,V>> decoratedChildrenOf(SortedNode<V> node) {
+        HashSet<DecoratedNode<SortedNode<V>,V>> decoratedChildren = new HashSet<DecoratedNode<SortedNode<V>,V>>();
         for (SortedNode<V> n : children.get(node)) {
-            decoratedChildren.add(new DecoratedNode<V>(n, tombstones.contains(node)));
+            decoratedChildren.add(new DecoratedNode<SortedNode<V>,V>(n, tombstones.contains(node)));
         }
         return decoratedChildren;
     }

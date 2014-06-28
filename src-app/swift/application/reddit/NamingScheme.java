@@ -69,6 +69,10 @@ public class NamingScheme {
         return new CRDTIdentifier("subreddit", subreddit);
     }
     
+    public static CRDTIdentifier forSubredditSet() {
+        return new CRDTIdentifier("subredditset", "global");
+    }
+    
     public static CRDTIdentifier forSubredditsOfUser(String username) {
         return new CRDTIdentifier("usersubredditset", username);
     }

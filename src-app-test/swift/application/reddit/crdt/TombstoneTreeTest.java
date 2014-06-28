@@ -184,7 +184,7 @@ public class TombstoneTreeTest {
 
         i.remove(zNode);
         
-        Set<DecoratedNode<Integer>> children = i.decoratedChildrenOf(vNode);
+        Set<DecoratedNode<Node<Integer>,Integer>> children = i.decoratedChildrenOf(vNode);
         for (DecoratedNode n: children) {
             assertTrue(n.getNode().equals(wNode));
             assertTrue(!n.isTombstone());

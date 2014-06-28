@@ -1079,6 +1079,7 @@ public class SwiftImpl implements SwiftScout, TxnManager, FailOverHandler {
                 final Constructor<V> constructor = classOfV.getConstructor(CRDTIdentifier.class);
                 checkpoint = constructor.newInstance(request.getUid());
             } catch (Exception e) {
+                e.printStackTrace();
                 throw new WrongTypeException(e.getMessage());
             }
             final CausalityClock clock = request.getRequestedVersion().clone();

@@ -20,6 +20,8 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertEquals;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -113,7 +115,7 @@ public class VoteableTreeTest {
     }
 
     @Test
-    public void emptyTest() {
+    public void emptyTest() throws VersionNotFoundException, NetworkException {
         // Check node does not exist
         assertTrue(!tree.has(new SortedNode<Comment>(tree.getRoot(), new Comment(1))));
         assertTrue(!tree.isRemoved(new SortedNode<Comment>(tree.getRoot(), new Comment(1))));
@@ -134,5 +136,21 @@ public class VoteableTreeTest {
     @Test
     public void topIndexTest() throws VersionNotFoundException, NetworkException {
         fillTree();
+    }
+    
+    @Test
+    public void copyTest() throws VersionNotFoundException, NetworkException {
+        fillTree();
+        VoteableTreeCPRDT<Comment, String> treeCopy = tree.copy();
+        for (SortedNode<Comment> node: nodes) {
+            assertTrue(treeCopy.has(node));
+        }
+        treeCopy = tree.copyFraction(Collections.singleton(nodes.get(0)));
+        assertTrue(treeCopy.has(nodes.get(0)));
+    }
+    
+    @Test
+    public void constructorTest() {
+        VoteableTreeCPRDT<Comment, String> tree = new VoteableTreeCPRDT<Comment, String>(new CRDTIdentifier("A", "Tree"));
     }
 }

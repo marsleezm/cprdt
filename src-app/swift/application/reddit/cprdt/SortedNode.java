@@ -1,14 +1,16 @@
 package swift.application.reddit.cprdt;
 
-import swift.application.reddit.crdt.Node;
+import swift.application.reddit.crdt.AbstractNode;
 
-public class SortedNode<V extends Comparable<V>> extends Node<V> implements Comparable<SortedNode<V>> {
+public class SortedNode<V extends Comparable<V>> extends AbstractNode<SortedNode<V>,V> implements Comparable<SortedNode<V>> {
+    protected static SortedNode root = new SortedNode(null, null);
+    
     public SortedNode(SortedNode<V> parent, V value) {
         super(parent, value);
     }
     
-    public SortedNode<V> getParent() {
-        return (SortedNode) parent;
+    public static SortedNode getRoot() {
+        return root;
     }
 
     @Override

@@ -72,4 +72,8 @@ public class Comment implements Thing<Comment> {
         
         return this.commentId.compareTo(o.getId());
     }
+
+    public String getLinkId() {
+        return this.linkId;
+    }
 }
