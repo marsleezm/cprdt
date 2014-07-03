@@ -5,6 +5,10 @@ public abstract class AbstractNode<T extends AbstractNode<T,V>, V> {
 	private V value;
 	private int depth;
 	
+	// Kryo
+    public AbstractNode() {
+    }
+	
 	public AbstractNode(T parent, V value) {
 		this.parent = parent;
 		this.value = value;

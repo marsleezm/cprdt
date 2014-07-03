@@ -1,6 +1,7 @@
 package swift.application.reddit;
 
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -36,7 +37,9 @@ public class RedditTest {
         SwiftSession clientServer = SwiftImpl.newSingleSessionInstance(new SwiftOptions("localhost",
                 DCConstants.SURROGATE_PORT));
         RedditPartialReplicas client = new RedditPartialReplicas(clientServer, IsolationLevel.SNAPSHOT_ISOLATION, CachePolicy.STRICTLY_MOST_RECENT, clientServer.getSessionId());
-
+        
+        List<Link> createdLinks = new ArrayList<Link>();
+        
         client.register("Alice", "Alice", "alice@test.com");
         client.register("Bob", "Bob", "bob@test.com");
 
@@ -48,8 +51,7 @@ public class RedditTest {
         long date = now - (24 * 3600 * 1000);
 
         for (int i = 1; i <= 500; i++) {
-            client.submit("link", "dev", "Post number " + i, date, "http://test.com/" + i, null);
-            System.out.println("Submitted link " + i);
+            createdLinks.add(client.submit(null, "dev", "Post number " + i, date, "http://test.com/" + i, null));
             date += 60000; // One minute
         }
 
@@ -58,8 +60,13 @@ public class RedditTest {
         client.login("Bob", "Bob");
 
         List<Link> newestLinks = client.links("dev", SortingOrder.NEW, null, null, 10);
-
+        
+        int i = createdLinks.size() - 1;
+        
         for (Link link : newestLinks) {
+            if (!link.equals(createdLinks.get(i))) {
+                System.err.println("Links not in correct order");
+            }
             System.out.println(link);
             Vote vote = client.voteOfLink(link);
             System.out.println("Score: " + vote.getScore());
@@ -67,7 +74,20 @@ public class RedditTest {
             vote = client.voteOfLink(link);
             System.out.println("Score after vote: " + vote.getScore());
             
-            client.comment(link, null, date + 10, "Test");
+            client.comment(link.getId(), null, date + 10, "Test");
+            
+            i--;
+        }
+        
+        newestLinks = client.links("dev", SortingOrder.NEW, null, createdLinks.get(400), 10);
+        
+        i = 399;
+        
+        for (Link link : newestLinks) {
+            if (!link.equals(createdLinks.get(i))) {
+                System.err.println("Link not in correct order got " + link + " versus "+createdLinks.get(i));
+            }
+            i--;
         }
 
         client.logout();

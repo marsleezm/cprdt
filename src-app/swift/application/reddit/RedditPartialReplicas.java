@@ -46,8 +46,30 @@ public class RedditPartialReplicas implements RedditAPI {
     private final CachePolicy cachePolicy;
 
     private boolean asyncCommit;
-    
+
     private boolean lazy;
+
+    private List<Link> lastLinks;
+    private String lastCommentsLinkId;
+    private List<SortedNode<Comment>> lastComments;
+
+    private List<SortedNode<Comment>> commentList;
+
+    public List<Link> getLastLinks() {
+        return lastLinks;
+    }
+
+    public String getLastCommentsLinkId() {
+        return lastCommentsLinkId;
+    }
+
+    public List<SortedNode<Comment>> getLastComments() {
+        return lastComments;
+    }
+
+    public List<SortedNode<Comment>> getCommentList() {
+        return commentList;
+    }
 
     protected String generateId() {
         return idGenerator.generateNew().toString();
@@ -93,12 +115,21 @@ public class RedditPartialReplicas implements RedditAPI {
 
     public RedditPartialReplicas(SwiftSession clientServer, IsolationLevel isolationLevel, CachePolicy cachePolicy,
             String clientId) {
+        this(clientServer, isolationLevel, cachePolicy, clientId, true);
+    }
+    
+    public RedditPartialReplicas(SwiftSession clientServer, IsolationLevel isolationLevel, CachePolicy cachePolicy,
+            String clientId, boolean lazy) {
         this.server = clientServer;
         this.isolationLevel = isolationLevel;
         this.cachePolicy = cachePolicy;
-        this.asyncCommit = false;
+        this.asyncCommit = true;
         this.idGenerator = new IncrementalTimestampGenerator(clientId);
-        this.lazy = true;
+        this.lazy = lazy;
+        this.lastLinks = Collections.emptyList();
+        this.lastCommentsLinkId = "";
+        this.lastComments = Collections.emptyList();
+        this.commentList = Collections.emptyList();
     }
 
     private void commitTxn(final TxnHandle txn) {
@@ -261,7 +292,7 @@ public class RedditPartialReplicas implements RedditAPI {
         TxnHandle txn = null;
         try {
             txn = server.beginTxn(isolationLevel, cachePolicy, false);
-            
+
             createSubreddit(txn, name, currentUser.getUsername());
 
             commitTxn(txn);
@@ -273,20 +304,24 @@ public class RedditPartialReplicas implements RedditAPI {
             }
         }
     }
-    
-    void createSubreddit(TxnHandle txn, String name, String author) throws WrongTypeException, NoSuchObjectException, VersionNotFoundException, NetworkException {
+
+    void createSubreddit(TxnHandle txn, String name, String author) throws WrongTypeException, NoSuchObjectException,
+            VersionNotFoundException, NetworkException {
         Subreddit sub = new Subreddit(name, author);
 
         LWWRegisterCRDT<Subreddit> subredditReg = (LWWRegisterCRDT<Subreddit>) get(txn,
                 NamingScheme.forSubreddit(name), true, LWWRegisterCRDT.class);
         subredditReg.set(sub);
+        // Create link set
+        get(txn, NamingScheme.forLinksOfSubreddit(name), true, IndexedVoteableSetCPRDT.class, lazy);
         /*
-        AddWinsSetCRDT<Subreddit> subredditSet = (AddWinsSetCRDT<Subreddit>) get(txn,
-                NamingScheme.forSubredditSet(), true, LWWRegisterCRDT.class, lazy);
-        subredditSet.add(sub);*/
+         * AddWinsSetCRDT<Subreddit> subredditSet = (AddWinsSetCRDT<Subreddit>)
+         * get(txn, NamingScheme.forSubredditSet(), true, LWWRegisterCRDT.class,
+         * lazy); subredditSet.add(sub);
+         */
     }
 
-    public Link submit(String kind, String subreddit, String title, long date, String url, String text) {
+    public Link submit(String linkId, String subreddit, String title, long date, String url, String text) {
         if (currentUser == null) {
             logger.warning("User must be logged in to submit a link");
             return null;
@@ -301,19 +336,19 @@ public class RedditPartialReplicas implements RedditAPI {
                 get(txn, NamingScheme.forSubreddit(subreddit), false, LWWRegisterCRDT.class);
             } catch (NoSuchObjectException e) {
                 logger.warning("You must post to an existing subreddit");
-                txn.rollback();
                 return null;
             }
-
-            String linkId = generateId();
-            if (kind.equals("link")) {
+            if (linkId == null) {
+                linkId = generateId();
+            }
+            if (url != null && !url.isEmpty()) {
                 link = new Link(linkId, currentUser.getUsername(), subreddit, title, date, false, url, null);
             } else {
                 link = new Link(linkId, currentUser.getUsername(), subreddit, title, date, false, null, text);
             }
-            
+
             submit(txn, link);
-            
+
             commitTxn(txn);
         } catch (SwiftException e) {
             e.printStackTrace();
@@ -326,20 +361,19 @@ public class RedditPartialReplicas implements RedditAPI {
         }
         return link;
     }
-    
-    void submit(TxnHandle txn, Link link) throws WrongTypeException, NoSuchObjectException, VersionNotFoundException, NetworkException {
+
+    void submit(TxnHandle txn, Link link) throws WrongTypeException, NoSuchObjectException, VersionNotFoundException,
+            NetworkException {
         IndexedVoteableSetCPRDT<Link, String> subredditLinks = (IndexedVoteableSetCPRDT<Link, String>) get(txn,
-                NamingScheme.forLinksOfSubreddit(link.getSubreddit()), true, IndexedVoteableSetCPRDT.class,
-                lazy);
+                NamingScheme.forLinksOfSubreddit(link.getSubreddit()), true, IndexedVoteableSetCPRDT.class, lazy);
 
         subredditLinks.add(link);
 
         // Vote my own link up
         voteLink(txn, link, link.getPosterUsername(), VoteDirection.UP);
-        
+
         // Create the comment tree
-        get(txn, NamingScheme.forCommentTree(link.getId()), true, VoteableTreeCPRDT.class,
-                lazy);
+        get(txn, NamingScheme.forCommentTree(link.getId()), true, VoteableTreeCPRDT.class, lazy);
     }
 
     public void voteLink(Link link, VoteDirection direction) {
@@ -370,10 +404,10 @@ public class RedditPartialReplicas implements RedditAPI {
         }
     }
 
-    void voteLink(TxnHandle txn, Link link, String user, VoteDirection direction) throws WrongTypeException, NoSuchObjectException, VersionNotFoundException, NetworkException {
+    void voteLink(TxnHandle txn, Link link, String user, VoteDirection direction) throws WrongTypeException,
+            NoSuchObjectException, VersionNotFoundException, NetworkException {
         IndexedVoteableSetCPRDT<Link, String> voteCounter = (IndexedVoteableSetCPRDT<Link, String>) get(txn,
-                NamingScheme.forLinksOfSubreddit(link.getSubreddit()), false, IndexedVoteableSetCPRDT.class,
-                lazy);
+                NamingScheme.forLinksOfSubreddit(link.getSubreddit()), false, IndexedVoteableSetCPRDT.class, lazy);
         voteCounter.vote(link, user, direction);
     }
 
@@ -384,10 +418,9 @@ public class RedditPartialReplicas implements RedditAPI {
 
         try {
             txn = server.beginTxn(isolationLevel, cachePolicy, true);
-            
+
             IndexedVoteableSetCPRDT<Link, String> voteCounterSet = (IndexedVoteableSetCPRDT<Link, String>) get(txn,
-                    link.getVoteCounterSetIdentifier(), false, IndexedVoteableSetCPRDT.class,
-                    lazy);
+                    link.getVoteCounterSetIdentifier(), false, IndexedVoteableSetCPRDT.class, lazy);
             VoteCounter<String> votes = voteCounterSet.voteCounterOf(link);
             VoteDirection myVote = VoteDirection.MIDDLE;
             if (currentUser != null) {
@@ -417,14 +450,13 @@ public class RedditPartialReplicas implements RedditAPI {
             logger.warning("You can only remove your own links");
             return false;
         }
-        
+
         TxnHandle txn = null;
         try {
             txn = server.beginTxn(isolationLevel, cachePolicy, false);
 
             IndexedVoteableSetCPRDT<Link, String> subredditLinks = (IndexedVoteableSetCPRDT<Link, String>) get(txn,
-                    NamingScheme.forLinksOfSubreddit(link.getSubreddit()), false, IndexedVoteableSetCPRDT.class,
-                    lazy);
+                    NamingScheme.forLinksOfSubreddit(link.getSubreddit()), false, IndexedVoteableSetCPRDT.class, lazy);
 
             subredditLinks.remove(link);
 
@@ -440,7 +472,7 @@ public class RedditPartialReplicas implements RedditAPI {
         return false;
     }
 
-    private SortedNode<Comment> getCommentNode(VoteableTreeCPRDT<Comment,String> commentTree, Comment comment) {
+    private SortedNode<Comment> getCommentNode(VoteableTreeCPRDT<Comment, String> commentTree, Comment comment) {
         SortedNode<Comment> commentNode = null;
         for (SortedNode<Comment> n : commentTree.getNodesByValue(comment)) {
             commentNode = n;
@@ -448,27 +480,28 @@ public class RedditPartialReplicas implements RedditAPI {
         return commentNode;
     }
 
-    public Comment comment(Link link, SortedNode<Comment> parentComment, long date, String text) {
+    public SortedNode<Comment> comment(String linkId, SortedNode<Comment> parentComment, long date, String text) {
         if (currentUser == null) {
             logger.warning("User must be logged in to submit a comment");
             return null;
         }
         TxnHandle txn = null;
         Comment comment = null;
+        SortedNode<Comment> commentNode = null;
 
         try {
             txn = server.beginTxn(isolationLevel, cachePolicy, false);
-            
+
             if (parentComment == null) {
                 parentComment = SortedNode.getRoot();
             }
 
             String commentId = generateId();
 
-            comment = new Comment(link.getId(), commentId, currentUser.getUsername(), date, text);
-            
-            SortedNode<Comment> commentNode = new SortedNode<Comment>(parentComment, comment);
-            
+            comment = new Comment(linkId, commentId, currentUser.getUsername(), date, text);
+
+            commentNode = new SortedNode<Comment>(parentComment, comment);
+
             comment(txn, commentNode);
 
             commitTxn(txn);
@@ -480,11 +513,12 @@ public class RedditPartialReplicas implements RedditAPI {
                 return null;
             }
         }
-        return comment;
+        return commentNode;
     }
-    
-    void comment(TxnHandle txn, SortedNode<Comment> commentNode) throws WrongTypeException, NoSuchObjectException, VersionNotFoundException, NetworkException {
-        VoteableTreeCPRDT<Comment,String> comments = (VoteableTreeCPRDT<Comment, String>) get(txn,
+
+    void comment(TxnHandle txn, SortedNode<Comment> commentNode) throws WrongTypeException, NoSuchObjectException,
+            VersionNotFoundException, NetworkException {
+        VoteableTreeCPRDT<Comment, String> comments = (VoteableTreeCPRDT<Comment, String>) get(txn,
                 NamingScheme.forCommentTree(commentNode.getValue().getLinkId()), false, VoteableTreeCPRDT.class, lazy);
 
         comments.add(commentNode);
@@ -515,9 +549,10 @@ public class RedditPartialReplicas implements RedditAPI {
 
         return vote;
     }
-    
-    Vote voteOfComment(TxnHandle txn, String myUsername, SortedNode<Comment> comment) throws VersionNotFoundException, NetworkException, WrongTypeException, NoSuchObjectException {
-        VoteableTreeCPRDT<Comment,String> comments = (VoteableTreeCPRDT<Comment, String>) get(txn,
+
+    Vote voteOfComment(TxnHandle txn, String myUsername, SortedNode<Comment> comment) throws VersionNotFoundException,
+            NetworkException, WrongTypeException, NoSuchObjectException {
+        VoteableTreeCPRDT<Comment, String> comments = (VoteableTreeCPRDT<Comment, String>) get(txn,
                 NamingScheme.forCommentTree(comment.getValue().getLinkId()), false, VoteableTreeCPRDT.class, lazy);
         VoteCounter<String> votes = comments.voteCounterOf(comment);
         VoteDirection myVote = VoteDirection.MIDDLE;
@@ -534,11 +569,11 @@ public class RedditPartialReplicas implements RedditAPI {
             logger.warning("User must be logged in to vote a comment");
             return;
         }
-        
+
         TxnHandle txn = null;
         try {
             txn = server.beginTxn(isolationLevel, cachePolicy, false);
-            
+
             voteComment(txn, comment, currentUser.getUsername(), direction);
 
             commitTxn(txn);
@@ -550,11 +585,12 @@ public class RedditPartialReplicas implements RedditAPI {
             }
         }
     }
-    
-    void voteComment(TxnHandle txn, SortedNode<Comment> comment, String username, VoteDirection direction) throws WrongTypeException, NoSuchObjectException, VersionNotFoundException, NetworkException {
-        VoteableTreeCPRDT<Comment,String> linkComments = (VoteableTreeCPRDT<Comment,String>) get(txn,
+
+    void voteComment(TxnHandle txn, SortedNode<Comment> comment, String username, VoteDirection direction)
+            throws WrongTypeException, NoSuchObjectException, VersionNotFoundException, NetworkException {
+        VoteableTreeCPRDT<Comment, String> linkComments = (VoteableTreeCPRDT<Comment, String>) get(txn,
                 NamingScheme.forCommentTree(comment.getValue().linkId), true, VoteableTreeCPRDT.class, true);
-        
+
         linkComments.vote(comment, username, direction);
     }
 
@@ -567,14 +603,14 @@ public class RedditPartialReplicas implements RedditAPI {
             logger.warning("You can only remove your own comments");
             return false;
         }
-        
+
         TxnHandle txn = null;
         try {
             txn = server.beginTxn(isolationLevel, cachePolicy, false);
 
-            VoteableTreeCPRDT<Comment,String> linkComments = (VoteableTreeCPRDT<Comment,String>) get(txn,
+            VoteableTreeCPRDT<Comment, String> linkComments = (VoteableTreeCPRDT<Comment, String>) get(txn,
                     NamingScheme.forCommentTree(comment.getValue().linkId), true, VoteableTreeCPRDT.class, lazy);
-            
+
             linkComments.remove(comment);
 
             commitTxn(txn);
@@ -590,8 +626,8 @@ public class RedditPartialReplicas implements RedditAPI {
     }
 
     /*
-     * Only one subreddit at a time for the moment 
-     * TODO: support multiple subreddits
+     * Only one subreddit at a time for the moment TODO: support multiple
+     * subreddits
      */
     public List<Link> links(String subreddit, SortingOrder sort, Link before, Link after, int limit) {
         if (before != null && after != null) {
@@ -604,13 +640,17 @@ public class RedditPartialReplicas implements RedditAPI {
             txn = server.beginTxn(isolationLevel, cachePolicy, true);
 
             IndexedVoteableSetCPRDT<Link, String> subredditLinks = (IndexedVoteableSetCPRDT<Link, String>) get(txn,
-                    NamingScheme.forLinksOfSubreddit(subreddit), false, IndexedVoteableSetCPRDT.class,
-                    lazy);
+                    NamingScheme.forLinksOfSubreddit(subreddit), false, IndexedVoteableSetCPRDT.class, lazy);
 
             links = subredditLinks.find(sort, after, before, limit);
 
             commitTxn(txn);
+
+            if (!links.isEmpty()) {
+                lastLinks = links;
+            }
         } catch (NoSuchObjectException e) {
+            logger.warning("The subreddit does not exist");
             links = Collections.emptyList();
         } catch (SwiftException e) {
             logger.warning(e.getMessage());
@@ -620,22 +660,36 @@ public class RedditPartialReplicas implements RedditAPI {
                 txn.rollback();
             }
         }
+
         return links;
     }
 
-    public SortedTree<DecoratedNode<SortedNode<Comment>,Comment>> comments(Link link, SortedNode<Comment> from, int context, SortingOrder sort, int limit) {
-        
+    public List<SortedNode<Comment>> comments(String linkId, SortedNode<Comment> from, int context, SortingOrder sort,
+            int limit) {
+
         TxnHandle txn = null;
+        List<SortedNode<Comment>> comments = null;
         try {
             txn = server.beginTxn(isolationLevel, cachePolicy, true);
 
-            VoteableTreeCPRDT<Comment,String> linkComments = (VoteableTreeCPRDT<Comment,String>) get(txn,
-                    NamingScheme.forCommentTree(link.getId()), false, VoteableTreeCPRDT.class, lazy);
+            VoteableTreeCPRDT<Comment, String> linkComments = (VoteableTreeCPRDT<Comment, String>) get(txn,
+                    NamingScheme.forCommentTree(linkId), false, VoteableTreeCPRDT.class, lazy);
             
-            List<SortedNode<Comment>> comments = linkComments.sortedSubtree(from, context, sort, limit);
+            if (from == null) {
+                from = SortedNode.getRoot();
+            }
+            
+            comments = linkComments.sortedSubtree(from, context, sort, limit);
             // TODO transform into tree (or do it directly in the CRDT)
 
             commitTxn(txn);
+
+            lastCommentsLinkId = linkId;
+            lastComments = comments;
+
+            if (!comments.isEmpty()) {
+                commentList = comments;
+            }
         } catch (SwiftException e) {
             logger.warning(e.getMessage());
         } finally {
@@ -643,7 +697,7 @@ public class RedditPartialReplicas implements RedditAPI {
                 txn.rollback();
             }
         }
-        return null;
+        return comments;
     }
 
     Map<CRDTIdentifier, CRDT<?>> bulkRes = new HashMap<CRDTIdentifier, CRDT<?>>();
@@ -680,8 +734,7 @@ public class RedditPartialReplicas implements RedditAPI {
 
     @SuppressWarnings("unchecked")
     <V extends CRDT<V>, T extends CRDT<V>> T get(TxnHandle txn, CRDTIdentifier id, boolean create, Class<V> classOfT,
-            boolean lazy) throws WrongTypeException, NoSuchObjectException, VersionNotFoundException,
-            NetworkException {
+            boolean lazy) throws WrongTypeException, NoSuchObjectException, VersionNotFoundException, NetworkException {
         return (T) txn.get(id, create, classOfT, lazy);
     }
 }

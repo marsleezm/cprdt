@@ -29,6 +29,12 @@ public class IndexedVoteableSetSortedShardQuery<V extends Date<V>, U> implements
     @Override
     public IndexedVoteableSetCPRDT<V, U> executeAt(IndexedVoteableSetCPRDT<V, U> crdtVersion, IndexedVoteableSetCPRDT<V, U> crdtPrunedVersion) {
         Set<V> queryResult = new HashSet<V>(crdtVersion.applyFind(sort, after, before, limit));
+        if (after != null) {
+            queryResult.add(after);
+        }
+        if (before != null) {
+            queryResult.add(before);
+        }
         return crdtPrunedVersion.copyFraction(queryResult);
     }
     

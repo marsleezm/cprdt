@@ -16,11 +16,14 @@
  *****************************************************************************/
 package swift.application.reddit.cprdt;
 
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertEquals;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -29,6 +32,7 @@ import swift.application.reddit.Link;
 import swift.application.reddit.SortingOrder;
 import swift.application.reddit.cprdt.IndexedVoteableSetCPRDT;
 import swift.application.reddit.crdt.VoteDirection;
+import swift.cprdt.core.Shard;
 import swift.crdt.TxnTester;
 import swift.crdt.core.CRDTIdentifier;
 import swift.crdt.core.TxnHandle;
@@ -151,6 +155,32 @@ public class VoteableSetTest {
             }
         } catch (Exception e) {
             e.printStackTrace();
+        }
+    }
+    
+    @Test
+    public void copyFractionTest() throws VersionNotFoundException, NetworkException {
+        fillSet();
+        
+        IndexedVoteableSetCPRDT<Link,String> copy = set.copyFraction(Collections.singleton(links.get(0)));
+        for (Link elem: copy.getValue()) {
+            assertTrue(elem.equals(links.get(0)));
+        }
+    }
+    
+    @Test
+    public void mergeTest() throws VersionNotFoundException, NetworkException {
+        fillSet();
+        
+        IndexedVoteableSetCPRDT<Link,String> hollowCopy = set.copyFraction(Collections.emptySet());
+        
+        assertTrue(hollowCopy.getShard().isHollow());
+        
+        hollowCopy.mergeSameVersion(set);
+        hollowCopy.setShard(Shard.full);
+        Set<Link> copyLinks = hollowCopy.getValue();
+        for (Link link: links) {
+            assertTrue(copyLinks.contains(link));
         }
     }
 }

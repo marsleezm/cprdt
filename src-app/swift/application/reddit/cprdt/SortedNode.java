@@ -5,6 +5,10 @@ import swift.application.reddit.crdt.AbstractNode;
 public class SortedNode<V extends Comparable<V>> extends AbstractNode<SortedNode<V>,V> implements Comparable<SortedNode<V>> {
     protected static SortedNode root = new SortedNode(null, null);
     
+    // Kryo
+    public SortedNode() {
+    }
+    
     public SortedNode(SortedNode<V> parent, V value) {
         super(parent, value);
     }

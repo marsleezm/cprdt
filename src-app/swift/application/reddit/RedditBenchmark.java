@@ -28,7 +28,11 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import swift.client.SwiftImpl;
 import swift.client.SwiftOptions;
+import swift.crdt.core.CachePolicy;
+import swift.crdt.core.IsolationLevel;
+import swift.crdt.core.SwiftSession;
 import swift.dc.DCConstants;
 import swift.dc.DCSequencerServer;
 import swift.dc.DCServer;
@@ -60,36 +64,25 @@ public class RedditBenchmark extends RedditApp {
 
         System.err.println("Populating db with users...");
 
-        final int numUsers = Props.intValue(properties, "swiftlinks.numUsers", 50);
-        final int numSubreddits = Props.intValue(properties, "swiftlinks.numSubreddits", 20);
-        final int numLinks = Props.intValue(properties, "swiftlinks.numLinks", 10);
-        final int avgCommentsPerLink = Props.intValue(properties, "swiftlinks.avgCommentsPerLink", 10);
-        final int avgVotesPerLink = Props.intValue(properties, "swiftlinks.avgVotesPerLink", 10);
-        final int downToUpLinkRatio = Props.intValue(properties, "swiftlinks.downToUpLinkRatio", 75);
-        final int avgVotesPerComment = Props.intValue(properties, "swiftlinks.avgVotesPerComment", 5);
-        final int downToUpCommentRatio = Props.intValue(properties, "swiftlinks.downToUpCommentRatio", 75);
+        generateInitialDataFromConfig(properties);
 
-        Random rg = new Random(6L);
-
-        Workload.generateData(rg, numUsers, numSubreddits, numLinks, avgCommentsPerLink, avgVotesPerLink,
-                downToUpLinkRatio, avgVotesPerComment, downToUpCommentRatio);
-
-        Workload.DataInit toInitData[] = { Workload.getUsers(), Workload.getSubreddits(), Workload.getLinks() };
+        Workload.DataInit toInitData[] = { Workload.getUsers(), Workload.getSubreddits(), Workload.getLinks(),
+                Workload.getLinkVotes(), Workload.getComments(), Workload.getCommentVotes() };
         int size = 0;
-        for (final Workload.DataInit data: toInitData) {
+        for (final Workload.DataInit data : toInitData) {
             size += data.size();
         }
-        
+
         final int fullSize = size;
-        
+
         final AtomicInteger counter = new AtomicInteger(0);
-        
+
         int k = 0;
-        
-        for (final Workload.DataInit data: toInitData) {
+
+        for (final Workload.DataInit data : toInitData) {
             final int PARTITION_SIZE = 1000;
             int partitions = data.size() / PARTITION_SIZE + (data.size() % PARTITION_SIZE > 0 ? 1 : 0);
-            
+
             ExecutorService pool = Executors.newFixedThreadPool(8);
             for (int i = 0; i < partitions; i++) {
                 int lo = i * PARTITION_SIZE, hi = (i + 1) * PARTITION_SIZE;
@@ -101,12 +94,12 @@ public class RedditBenchmark extends RedditApp {
                     }
                 });
             }
-            
+
             Threading.awaitTermination(pool, Integer.MAX_VALUE);
-            
+
             k++;
-            
-            System.out.println(k + "/"+toInitData.length);
+
+            System.out.println(k + "/" + toInitData.length);
         }
         Threading.sleep(5000);
         System.out.println("\nFinished populating db with users.");
@@ -124,6 +117,9 @@ public class RedditBenchmark extends RedditApp {
         // ASSUMPTION: concurrentSessions is the same at all sites
         int numberOfVirtualSites = numberOfSites * concurrentSessions;
 
+        // 1/userFraction sessions are logged in
+        int userFraction = Args.valueOf(args, "-userfraction", 2);
+
         List<String> candidates = Args.subList(args, "-servers");
         server = ClosestDomain.closest2Domain(candidates, site);
         shepard = Args.valueOf(args, "-shepard", "");
@@ -133,6 +129,8 @@ public class RedditBenchmark extends RedditApp {
         bufferedOutput = new PrintStream(System.out, false);
 
         super.populateWorkloadFromConfig();
+
+        System.err.println(Workload.getSubreddits().getData());
 
         bufferedOutput.printf(";\n;\targs=%s\n", Arrays.asList(args));
         bufferedOutput.printf(";\tsite=%s\n", site);
@@ -152,7 +150,7 @@ public class RedditBenchmark extends RedditApp {
         System.err.println("Spawning session threads.");
         for (int i = 0; i < concurrentSessions; i++) {
             final int sessionId = site * concurrentSessions + i;
-            final Workload commands = getWorkloadFromConfig(sessionId, numberOfVirtualSites);
+            final Workload commands = getWorkloadFromConfig(sessionId, numberOfVirtualSites, (i % userFraction) == 0);
             threadPool.execute(new Runnable() {
                 public void run() {
                     // Randomize startup to avoid clients running all at the
@@ -178,6 +176,14 @@ public class RedditBenchmark extends RedditApp {
         System.exit(0);
     }
 
+    public void test() {
+        SwiftSession clientServer = SwiftImpl.newSingleSessionInstance(new SwiftOptions("localhost",
+                DCConstants.SURROGATE_PORT));
+        RedditPartialReplicas client = new RedditPartialReplicas(clientServer, IsolationLevel.SNAPSHOT_ISOLATION,
+                CachePolicy.CACHED, clientServer.getSessionId(), true);
+        System.out.println(client.links(Workload.getSubreddits().getData().get(0), SortingOrder.HOT, null, null, 100));
+    }
+
     public static void main(String[] args) {
         sys.Sys.init();
 
@@ -190,7 +196,8 @@ public class RedditBenchmark extends RedditApp {
             args = new String[] { "-servers", "localhost", "-threads", "10" };
 
             instance.initDB(args);
-            //instance.doBenchmark(args);
+            //instance.test();
+            instance.doBenchmark(args);
             exit(0);
         }
 

@@ -277,7 +277,7 @@ public class IndexedVoteableSetCPRDT<V extends Date<V>, U> extends
         final HashMap<V, Set<TripleTimestamp>> newInstances = new HashMap<V, Set<TripleTimestamp>>();
         AddWinsUtils.deepCopy(elemsInstancesSubset, newInstances);
 
-        return new IndexedVoteableSetCPRDT<V, U>(id, txn, clock, shard, newInstances, newCounters);
+        return new IndexedVoteableSetCPRDT<V, U>(id, txn, clock, new Shard(elements), newInstances, newCounters);
     }
 
     public IndexedVoteableSetCPRDT<V, U> copy() {

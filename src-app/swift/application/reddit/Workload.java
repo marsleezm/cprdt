@@ -18,6 +18,7 @@ package swift.application.reddit;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -40,9 +41,10 @@ import com.thoughtworks.xstream.core.util.Base64Encoder;
 abstract public class Workload implements Iterable<String>, Iterator<String> {
 
     private static final int MAX_SITES = 1321;
+    private static boolean generated = false;
     /** List of user names */
     private static List<String> users = new ArrayList<String>();
-    /** List of links */
+    /** List of subreddits */
     private static List<String> subreddits = new ArrayList<String>();
     /** List of links */
     private static List<Link> links = new ArrayList<Link>();
@@ -57,22 +59,26 @@ abstract public class Workload implements Iterable<String>, Iterator<String> {
     abstract public int size();
 
     private static long currentDate = 140370504;
-    
+
     public static class Vote<K, V> {
         K element;
         V voter;
         VoteDirection vote;
+
         public Vote(K element, V voter, VoteDirection vote) {
             this.element = element;
             this.voter = voter;
             this.vote = vote;
         }
+
         public K getElement() {
             return element;
         }
+
         public V getVoter() {
             return voter;
         }
+
         public VoteDirection getDirection() {
             return vote;
         }
@@ -88,7 +94,7 @@ abstract public class Workload implements Iterable<String>, Iterator<String> {
         public List<V> getData() {
             return data;
         }
-        
+
         public int size() {
             return data.size();
         }
@@ -99,12 +105,16 @@ abstract public class Workload implements Iterable<String>, Iterator<String> {
 
     public static void generateData(Random rg, int numUsers, int numSubreddits, int numLinks, int avgCommentsPerLink,
             int avgVotesPerLink, int downToUpLinkRatio, int avgVotesPerComment, int downToUpCommentRatio) {
+        if (generated) {
+            return;
+        }
         generateUsers(rg, numUsers);
         generateSubreddits(rg, numSubreddits);
         generateLinks(rg, numLinks);
         generateComments(rg, avgCommentsPerLink);
         generateLinkVotes(rg, avgVotesPerLink, downToUpLinkRatio);
         generateCommentVotes(rg, avgVotesPerComment, downToUpCommentRatio);
+        generated = true;
     }
 
     public static DataInit<String> getUsers() {
@@ -122,7 +132,7 @@ abstract public class Workload implements Iterable<String>, Iterator<String> {
             @Override
             public void init(RedditPartialReplicas client, TxnHandle txn, String sub) throws WrongTypeException,
                     NoSuchObjectException, VersionNotFoundException, NetworkException {
-                client.createSubreddit(txn, sub, "");
+                client.createSubreddit(txn, sub, "admin");
             }
         };
     }
@@ -140,8 +150,8 @@ abstract public class Workload implements Iterable<String>, Iterator<String> {
     public static DataInit<Vote<Link, String>> getLinkVotes() {
         return new DataInit<Vote<Link, String>>(linkVotes) {
             @Override
-            public void init(RedditPartialReplicas client, TxnHandle txn, Vote<Link, String> vote) throws WrongTypeException,
-                    NoSuchObjectException, VersionNotFoundException, NetworkException {
+            public void init(RedditPartialReplicas client, TxnHandle txn, Vote<Link, String> vote)
+                    throws WrongTypeException, NoSuchObjectException, VersionNotFoundException, NetworkException {
                 client.voteLink(txn, vote.getElement(), vote.getVoter(), vote.getDirection());
             }
         };
@@ -150,8 +160,8 @@ abstract public class Workload implements Iterable<String>, Iterator<String> {
     public static DataInit<SortedNode<Comment>> getComments() {
         return new DataInit<SortedNode<Comment>>(comments) {
             @Override
-            public void init(RedditPartialReplicas client, TxnHandle txn, SortedNode<Comment> comment) throws WrongTypeException,
-                    NoSuchObjectException, VersionNotFoundException, NetworkException {
+            public void init(RedditPartialReplicas client, TxnHandle txn, SortedNode<Comment> comment)
+                    throws WrongTypeException, NoSuchObjectException, VersionNotFoundException, NetworkException {
                 client.comment(txn, comment);
             }
         };
@@ -160,8 +170,8 @@ abstract public class Workload implements Iterable<String>, Iterator<String> {
     public static DataInit<Vote<SortedNode<Comment>, String>> getCommentVotes() {
         return new DataInit<Vote<SortedNode<Comment>, String>>(commentVotes) {
             @Override
-            public void init(RedditPartialReplicas client, TxnHandle txn, Vote<SortedNode<Comment>, String> vote) throws WrongTypeException,
-                    NoSuchObjectException, VersionNotFoundException, NetworkException {
+            public void init(RedditPartialReplicas client, TxnHandle txn, Vote<SortedNode<Comment>, String> vote)
+                    throws WrongTypeException, NoSuchObjectException, VersionNotFoundException, NetworkException {
                 client.voteComment(txn, vote.getElement(), vote.getVoter(), vote.getDirection());
             }
         };
@@ -269,7 +279,7 @@ abstract public class Workload implements Iterable<String>, Iterator<String> {
         int maxVotes = (avgVotesPerLink * 2) + 1;
 
         for (Link link : links) {
-            generateVotes(rg,link, linkVotes, maxVotes, downToUpRatio);
+            generateVotes(rg, link, linkVotes, maxVotes, downToUpRatio);
         }
     }
 
@@ -286,7 +296,8 @@ abstract public class Workload implements Iterable<String>, Iterator<String> {
         }
     }
 
-    private static <K> void generateVotes(Random rg, K element, List<Vote<K, String>> votes, int maxVotes, int downToUpRatio) {
+    private static <K> void generateVotes(Random rg, K element, List<Vote<K, String>> votes, int maxVotes,
+            int downToUpRatio) {
         int numberVotes = rg.nextInt(maxVotes);
         for (int i = 0; i < numberVotes; i++) {
             VoteDirection direction;
@@ -298,7 +309,7 @@ abstract public class Workload implements Iterable<String>, Iterator<String> {
             }
             String voter = users.get(rg.nextInt(users.size()));
 
-            votes.add(new Vote<K,String>(element, voter, direction));
+            votes.add(new Vote<K, String>(element, voter, direction));
         }
     }
 
@@ -314,23 +325,41 @@ abstract public class Workload implements Iterable<String>, Iterator<String> {
             return this;
         }
 
-        abstract String doLine(Random rg, String user, List<String> candidates);
+        abstract String doLine(Random rg, String user, boolean biased, long date, List<String> candidates,
+                List<SortingOrder> orderings);
 
         public String toString() {
             return getClass().getSimpleName();
         }
     }
 
-    /**
-     * Status operation.
-     */
-    static class Status extends Operation {
-        String[] activities = new String[] { "Running Experiments", "Drinking Coffee", "Sleeping" };
-
+    static class ReadLinks extends Operation {
         @Override
-        String doLine(Random rg, String user, List<String> dummy) {
-            int index = rg.nextInt(activities.length);
-            return String.format("status;\"%s\";", activities[index]);
+        public String doLine(Random rg, String user, boolean biased, long date, List<String> subreddits,
+                List<SortingOrder> orderings) {
+            int index = rg.nextInt(subreddits.size());
+            String sub = subreddits.get(index);
+            SortingOrder order = orderings.get(rg.nextInt(orderings.size()));
+            String after = "";
+            if (!biased) {
+                // Get an old link
+                after = links.get(rg.nextInt(links.size())).getId();
+            }
+            return String.format("read_links;%s;%s;%s", sub, order.toString(), after);
+        }
+    }
+
+    static class ReadComments extends Operation {
+        @Override
+        public String doLine(Random rg, String user, boolean biased, long date, List<String> subreddits,
+                List<SortingOrder> orderings) {
+            SortingOrder order = orderings.get(rg.nextInt(orderings.size()));
+            String linkId = "";
+            if (!biased) {
+                // Get an old link
+                linkId = links.get(rg.nextInt(links.size())).getId();
+            }
+            return String.format("read_comments;%s;%s;%d", linkId, order.toString(), rg.nextInt(1024));
         }
     }
 
@@ -338,51 +367,65 @@ abstract public class Workload implements Iterable<String>, Iterator<String> {
      * Posts a link. Target is a randomly chosen subreddit from a list of
      * candidates
      */
-    static class Post extends Operation {
+    static class PostLink extends Operation {
         @Override
-        public String doLine(Random rg, String user, List<String> subreddits) {
+        public String doLine(Random rg, String user, boolean biased, long date, List<String> subreddits,
+                List<SortingOrder> orderings) {
             int index = rg.nextInt(subreddits.size());
-            String recipient = subreddits.get(index);
-            return String.format("post_link;;%d;%s;\"What up, dawg\";", recipient);
+            String sub = subreddits.get(index);
+            return String.format("post_link;;%s;Link title;%d;http://www.test.com/;", sub, date);
         }
     }
 
-    /**
-     * Reads messages and events of a user. Target is a randomly chosen user
-     * from a list of candidates (eg. allusers).
-     */
-    static class Read extends Operation {
+    static class PostComment extends Operation {
         @Override
-        public String doLine(Random rg, String user, List<String> candidates) {
-            int index = rg.nextInt(candidates.size());
-            String peer = candidates.get(index);
-            return String.format("read;%s;", peer);
+        public String doLine(Random rg, String user, boolean biased, long date, List<String> subreddits,
+                List<SortingOrder> orderings) {
+            String linkId = "";
+            String commentIndex = "";
+            if (!biased) {
+                int index = rg.nextInt(comments.size());
+                commentIndex = String.valueOf(index);
+                linkId = comments.get(index).getValue().getLinkId();
+            }
+            return String.format("post_comment;%s;%s;%d;Comment content;%d", linkId, commentIndex, date,
+                    rg.nextInt(1024));
         }
     }
 
-    /**
-     * Befriends a user. Target is randomly chosen from a list of candidates
-     * (eg. allusers).
-     */
-    static class Friend extends Operation {
+    static class VoteLink extends Operation {
         @Override
-        public String doLine(Random rg, String user, List<String> candidates) {
-            int index = rg.nextInt(candidates.size());
-            String peer = candidates.get(index);
-            return String.format("friend;%s;", peer);
+        public String doLine(Random rg, String user, boolean biased, long date, List<String> subreddits,
+                List<SortingOrder> orderings) {
+            String linkIndex = "";
+            if (!biased) {
+                linkIndex = String.valueOf(rg.nextInt(links.size()));
+            }
+            VoteDirection direction = (rg.nextBoolean()) ? VoteDirection.UP : VoteDirection.DOWN;
+            return String.format("vote_link;%s;%s;%d", linkIndex, direction.toString(), rg.nextInt(1024));
         }
     }
 
-    /**
-     * Reads all friends of a user. Target is randomly chosen from a list of
-     * candidates (eg. friends).
-     */
-    static class SeeFriends extends Operation {
+    static class VoteComment extends Operation {
         @Override
-        public String doLine(Random rg, String user, List<String> candidates) {
-            int index = rg.nextInt(candidates.size());
-            String peer = candidates.get(index);
-            return String.format("see_friends;%s;", peer);
+        public String doLine(Random rg, String user, boolean biased, long date, List<String> subreddits,
+                List<SortingOrder> orderings) {
+            String commentIndex = "";
+            if (!biased) {
+                commentIndex = String.valueOf(rg.nextInt(comments.size()));
+            }
+            VoteDirection direction = (rg.nextBoolean()) ? VoteDirection.UP : VoteDirection.DOWN;
+            return String.format("vote_link;%s;%s;%d", commentIndex, direction.toString(), rg.nextInt(1024));
+        }
+    }
+
+    static class CreateSubreddit extends Operation {
+        @Override
+        public String doLine(Random rg, String user, boolean biased, long date, List<String> subreddits,
+                List<SortingOrder> orderings) {
+            int index = rg.nextInt(subreddits.size());
+            String sub = subreddits.get(index);
+            return String.format("create_subreddit;%s", sub);
         }
     }
 
@@ -391,8 +434,9 @@ abstract public class Workload implements Iterable<String>, Iterator<String> {
      */
     static class Login extends Operation {
         @Override
-        public String doLine(Random rg, String user, List<String> dummy) {
-            return String.format("login;%s;passwd;", user);
+        public String doLine(Random rg, String user, boolean biased, long date, List<String> subreddits,
+                List<SortingOrder> orderings) {
+            return String.format("login;%s;passwd", user);
         }
     }
 
@@ -401,8 +445,9 @@ abstract public class Workload implements Iterable<String>, Iterator<String> {
      */
     static class Logout extends Operation {
         @Override
-        public String doLine(Random rg, String user, List<String> dummy) {
-            return String.format("logout;%s;", user);
+        public String doLine(Random rg, String user, boolean biased, long date, List<String> subreddits,
+                List<SortingOrder> orderings) {
+            return String.format("logout");
         }
     }
 
@@ -410,8 +455,12 @@ abstract public class Workload implements Iterable<String>, Iterator<String> {
      * Defines the set of available operations and their frequency. Frequencies
      * need to add up to 100.
      */
-    private static Operation[] ops = new Operation[] { new Status().freq(5), new Post().freq(5), new Read().freq(80),
-            new Friend().freq(2), new SeeFriends().freq(8) };
+    private static Operation[] readOps = new Operation[] { new ReadLinks().freq(60), new ReadComments().freq(40) };
+    private static Operation[] writeOps = new Operation[] { new PostLink().freq(5), new PostComment().freq(15),
+            new VoteLink().freq(40), new VoteComment().freq(40) };
+    
+    // There is a write every ten reads
+    int readToWriteRatio = 10;
 
     private static AtomicInteger doMixedCounter = new AtomicInteger(7);
 
@@ -434,61 +483,94 @@ abstract public class Workload implements Iterable<String>, Iterator<String> {
      *            number of user partitions
      * @return workload represented as an iterable collection of operations
      */
-    static public Workload doMixed(int site, int friends_per_user, final int ops_biased, final int ops_random,
-            final int ops_groups, int number_of_sites) {
+    static public Workload doMixed(int site, final boolean isLoggedIn, final int ops_biased, final int ops_random,
+            final int ops_groups, int number_of_sites, final long startingDate) {
         // Each workload has its own seed...
         final Random rg = new Random(doMixedCounter.addAndGet(MAX_SITES + site));
+        
+        final List<SortingOrder> orders = new ArrayList<SortingOrder>();
+        orders.add(SortingOrder.NEW);
+        orders.add(SortingOrder.HOT);
 
-        // Pick a user at random from this site's user partition
+        // Pick a user at random from this site's user partition (for non
+        // read-only workloads)
         site = site < 0 ? rg.nextInt(number_of_sites) : site; // fix site
         int partitionSize = users.size() / number_of_sites;
-        final String user = users.get(rg.nextInt(partitionSize) + partitionSize * site);
-
-        // Generate random friends for the user
-        final List<String> friends = new ArrayList<String>();
-        for (int i = 0; i < friends_per_user; i++)
-            friends.add(users.get(rg.nextInt(users.size())));
+        final String user;
+        if (isLoggedIn) {
+            user = users.get(rg.nextInt(partitionSize) + partitionSize * site);
+        } else {
+            user = "";
+        }
 
         // Generate 100 biased operations, according to their frequency
-        final List<String> mix = new ArrayList<String>();
-        for (Operation i : ops)
+        final List<Operation> mixRead = new ArrayList<Operation>();
+        for (Operation i : readOps)
             for (int j = 0; j < i.frequency; j++)
-                mix.add(i.doLine(rg, user, friends));
+                mixRead.add(i);
 
-        if (mix.size() != 100) {
+        if (mixRead.size() != 100) {
             System.err.println("Workload generation bug");
             System.exit(0);
+        }
+        
+        final List<Operation> mixWrite = new ArrayList<Operation>();
+        if (isLoggedIn) {
+            for (Operation i : writeOps)
+                for (int j = 0; j < i.frequency; j++)
+                    mixWrite.add(i);
         }
 
         return new Workload() {
             int groupCounter = 0;
+            int biasedCounter = 0;
+            int randomCounter = 0;
             Iterator<String> it = null;
+            long date = startingDate + rg.nextInt(1000);
 
             // operation groups are generated on the fly
             void refill() {
                 ArrayList<String> group = new ArrayList<String>();
 
-                // first group starts with login...
-                if (groupCounter == 0)
-                    group.add(new Login().doLine(rg, user, null));
+                if (groupCounter == 0) {
+                    if (isLoggedIn) {
+                        // first group starts with login...
+                        group.add(new Login().doLine(rg, user, false, 0L, null, null));
+                    }
+                    // Make sure the client has read some links and comments
+                    group.add(new ReadLinks().doLine(rg, user, true, date, subreddits, orders));
+                    group.add(new ReadComments().doLine(rg, user, true, date, subreddits, orders));
+                }
 
                 if (groupCounter < ops_groups) {
 
                     // append biased operations, those targeting the user's
                     // friends
-                    for (int i = 0; i < ops_biased; i++)
-                        group.add(mix.get(rg.nextInt(mix.size())));
+                    for (int i = 0; i < ops_biased; i++) {
+                        group.add(mixRead.get(rg.nextInt(mixRead.size())).doLine(rg, user, true, date, subreddits, orders));
+                        biasedCounter++;
+                        if (isLoggedIn && (biasedCounter % readToWriteRatio) == 0) {
+                            group.add(mixWrite.get(rg.nextInt(mixWrite.size())).doLine(rg, user, true, date, subreddits, orders));
+                        }
+                    }
 
                     // append read operations targeting any user in the system.
                     for (int i = 0; i < ops_random; i++)
-                        group.add(new Read().doLine(rg, user, users));
+                        group.add(mixRead.get(rg.nextInt(mixRead.size())).doLine(rg, user, false, date, subreddits, orders));
+                        randomCounter++;
+                        if (isLoggedIn && (randomCounter % readToWriteRatio) == 0) {
+                            group.add(mixWrite.get(rg.nextInt(mixWrite.size())).doLine(rg, user, false, date, subreddits, orders));
+                        }
                 }
+                
+                date += 1000;
 
                 groupCounter++;
 
                 // last group ends with logout
-                if (groupCounter == ops_groups)
-                    group.add(new Logout().doLine(rg, user, null));
+                if (isLoggedIn && groupCounter == ops_groups) {
+                    group.add(new Logout().doLine(rg, user, false, 0L, null, null));
+                }
 
                 it = group.iterator();
             }
@@ -524,13 +606,12 @@ abstract public class Workload implements Iterable<String>, Iterator<String> {
     }
 
     public static void main(String[] args) throws Exception {
-        /*
-         * int numUsers = 25000; Workload.generateData(numUsers);
-         * System.out.println("Generated " + numUsers + " users");
-         * 
-         * Workload res = Workload.doMixed(0, 25, 9, 2, 2, 10);
-         * System.out.println("Generated " + res.size() + " operations"); for
-         * (String i : res) System.out.println(i);
-         */
+        Random rg = new Random(17);
+        Workload.generateData(rg, 20, 3, 200, 10, 20, 70, 5, 70);
+        Workload res = doMixed(0, true, 9, 2,
+                10, 2, System.currentTimeMillis());
+        
+        System.out.println("Generated " + res.size() + " operations");
+        for (String i : res) System.out.println(i);
     }
 }

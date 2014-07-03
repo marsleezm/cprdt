@@ -434,7 +434,7 @@ public class VoteableTreeCPRDT<V extends Date<V>, U> extends BaseCRDT<VoteableTr
             }
         }
 
-        return new VoteableTreeCPRDT<V, U>(id, txn, clock, shard, nodesSubset, tombstonesSubset, newCounters);
+        return new VoteableTreeCPRDT<V, U>(id, txn, clock, new Shard(fraction), nodesSubset, tombstonesSubset, newCounters);
     }
 
     public List<SortedNode<V>> applySortedSubtree(SortedNode<V> node, int context, SortingOrder sort, int limit) {
