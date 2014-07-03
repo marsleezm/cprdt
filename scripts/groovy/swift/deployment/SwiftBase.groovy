@@ -11,23 +11,23 @@ class SwiftBase {
         return "java " + heap + " " + exec + "2> >(tee " + stderr + " 1>&2) > >(tee " + stdout + ")"
     }
 
-    static String swift_app_cmd_nostdout( String heap, String exec, String stdout, String stderr )  {
+    static String swift_app_cmd_nostdout( String heap, String exec, String stderr, String stdout )  {
         return "java " + heap + " " + exec +  "2> >(tee " + stderr+ " 1>&2) > " + stdout
     }
 
-    static String sequencerCmd( String siteId, String shepard, List servers, List otherSequencers) {
+    static String sequencerCmd( String siteId, String shepard, List servers, List otherSequencers, String extraArgs) {
         def res  = SEQUENCER_CMD + " -name " + siteId + " -shepard " + shepard + " -servers "
         servers.each { res += it + " "}
         res += "-sequencers "
         otherSequencers.each { res += it + " "}
-        return res
+        return res + extraArgs + " "
     }
 
-    static String surrogateCmd( String siteId, String shepard, String sequencer, List otherSurrogates ) {
+    static String surrogateCmd( String siteId, String shepard, String sequencer, List otherSurrogates, String extraArgs ) {
         def res  = SURROGATE_CMD + " -name " + siteId  + " -shepard " + shepard + " -sequencer " + sequencer + " "
         res += "-surrogates "
         otherSurrogates.each { res += it + " "}
-        return res
+        return res + extraArgs + " "
     }
 
 	static void runEachAsSequencer( List sequencers, List surrogates, String seqHeap) {
@@ -46,7 +46,7 @@ class SwiftBase {
         println "==== STARTING DATACENTER SURROGATES ===="
 
         surrogates.each { host ->
-            rshC(host, swift_app_cmd_nostdout( "-Xms"+heap, surrogateCmd( sequencer ), "sur-stdout.txt", "sur-stderr.txt" ))
+            rshC(host, swift_app_cmd_nostdout( "-Xms"+heap, surrogateCmd( sequencer ), "sur-stderr.txt", "sur-stdout.txt" ))
         }
         println "\nOK"
     }
