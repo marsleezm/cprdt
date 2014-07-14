@@ -157,7 +157,7 @@ public class SwiftImpl implements SwiftScout, TxnManager, FailOverHandler {
     public static SwiftSession newSingleSessionInstance(final SwiftOptions options) {
         Endpoint[] servers = parseEndpoints(options.getServerHostname());
         final SwiftScout sharedImpl = new SwiftImpl(Networking.rpcConnect().toDefaultService(), servers,
-                new LRUObjectsCache(options.getCacheEvictionTimeMillis(), options.getCacheSize()), options);
+                new LRUObjectsCache(options.getCacheEvictionTimeMillis(), options.getCacheSize(), options.getQueryCacheTimeThreshold(), options.getCacheSizeLimit()), options);
         return sharedImpl.newSession("singleton-session");
     }
 
@@ -173,7 +173,7 @@ public class SwiftImpl implements SwiftScout, TxnManager, FailOverHandler {
         Endpoint[] servers = parseEndpoints(options.getServerHostname());
 
         return new SwiftImpl(Networking.rpcConnect().toDefaultService(), servers, new LRUObjectsCache(
-                options.getCacheEvictionTimeMillis(), options.getCacheSize()), options);
+                options.getCacheEvictionTimeMillis(), options.getCacheSize(), options.getQueryCacheTimeThreshold(), options.getCacheSizeLimit()), options);
     }
 
     private static String generateScoutId() {
@@ -304,7 +304,7 @@ public class SwiftImpl implements SwiftScout, TxnManager, FailOverHandler {
         } else {
             this.stats = new DummyStats();
         }
-        this.cacheStats = new CoarseCacheStats(stats);
+        this.cacheStats = new CoarseCacheStats(stats, objectsCache);
 
         this.metadataStatsCollector = options.getMetadataStatsCollector();
 
@@ -878,24 +878,6 @@ public class SwiftImpl implements SwiftScout, TxnManager, FailOverHandler {
         }
         
         if (crdt == null) {
-            if (create && query.isAvailableIn(Shard.hollow)) {
-                // If the client requested a hollow replica, we can create it locally
-                // even if it's not in the cache
-                // TODO (need to register creation somehow)
-                /*
-                final V checkpoint;
-                try {
-                    final Constructor<V> constructor = classOfV.getConstructor(CRDTIdentifier.class);
-                    checkpoint = constructor.newInstance(id);
-                    checkpoint.setShard(Shard.hollow);
-                    //crdt = new ManagedCRDT<V>(id, checkpoint, clock, false);
-                    //crdt = objectsCache.add(crdt, txn == null ? -1L : txn.serial, query, clock);
-                    //return crdt.getVersion(clock, txn);
-                    return checkpoint.copyWith(txn, clock);
-                } catch (Exception e) {
-                    throw new WrongTypeException(e.getMessage());
-                }*/
-            }
             throw new NoSuchObjectException("Object not available in the cache");
         }
         
@@ -1215,7 +1197,7 @@ public class SwiftImpl implements SwiftScout, TxnManager, FailOverHandler {
     private void applyLocalObjectUpdates(ManagedCRDT cachedCRDT, final AbstractTxnHandle localTxn) {
         // Try to apply changes in a cached copy of an object.
         if (cachedCRDT == null) {
-            logger.warning("object evicted from the local cache, cannot apply local transaction changes");
+            logger.info("object evicted from the local cache, cannot apply local transaction changes");
             return;
         }
 

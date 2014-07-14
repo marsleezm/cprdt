@@ -114,8 +114,9 @@ abstract class AbstractTxnHandle implements TxnHandle, Comparable<AbstractTxnHan
     private Stopper unstableGlocalCron;
 
     final protected Map<CRDTIdentifier, CRDT<?>> objectViewsCache;
+    final protected Map<CRDTIdentifier, CRDT<?>> checkpointCache;
     final protected Map<CRDTIdentifier, Set<CRDTShardQuery<?>>> objectQueriesCache;
-    final protected Set<CRDTIdentifier> created;
+    final protected Set<CRDTIdentifier> toCreate;
 
     /**
      * Creates an update transaction.
@@ -152,8 +153,9 @@ abstract class AbstractTxnHandle implements TxnHandle, Comparable<AbstractTxnHan
         this.serial = serialGenerator.getAndIncrement();
         
         this.objectViewsCache = new ConcurrentHashMap<CRDTIdentifier, CRDT<?>>();
+        this.checkpointCache = new ConcurrentHashMap<CRDTIdentifier, CRDT<?>>();
         this.objectQueriesCache = new HashMap<CRDTIdentifier, Set<CRDTShardQuery<?>>>();
-        this.created = Collections.newSetFromMap(new ConcurrentHashMap<CRDTIdentifier, Boolean>());
+        this.toCreate = Collections.newSetFromMap(new ConcurrentHashMap<CRDTIdentifier, Boolean>());
         
         initStats(stats);
     }
@@ -188,8 +190,9 @@ abstract class AbstractTxnHandle implements TxnHandle, Comparable<AbstractTxnHan
         this.objectUpdatesListeners = new HashMap<CRDT<?>, ObjectUpdatesListener>();
 
         this.objectViewsCache = new ConcurrentHashMap<CRDTIdentifier, CRDT<?>>();
+        this.checkpointCache = new ConcurrentHashMap<CRDTIdentifier, CRDT<?>>();
         this.objectQueriesCache = new HashMap<CRDTIdentifier, Set<CRDTShardQuery<?>>>();
-        this.created = Collections.emptySet();
+        this.toCreate = Collections.newSetFromMap(new ConcurrentHashMap<CRDTIdentifier, Boolean>());
 
         this.serial = serialGenerator.getAndIncrement();
         initStats(stats);
@@ -281,6 +284,7 @@ abstract class AbstractTxnHandle implements TxnHandle, Comparable<AbstractTxnHan
         } catch (NoSuchObjectException e) {
             throw new IllegalStateException("Object not found during fetch");
         }
+        
         if (!query.isAvailableIn(localView.getShard())) {
             // We cache the query to know we already did it
             // (only if it's a complex query that can't be compared with the shard)
@@ -325,6 +329,11 @@ abstract class AbstractTxnHandle implements TxnHandle, Comparable<AbstractTxnHan
     @Override
     public synchronized void commitAsync(final CommitListener listener) {
         assertStatus(TxnStatus.PENDING);
+        for (CRDTIdentifier id: toCreate) {
+            if (localObjectOperations.get(id) == null) {
+                registerObjectCreation(id, (CRDT) checkpointCache.get(id));
+            }
+        }
         this.commitListener = listener;
         manager.commitTxn(this);
     }
@@ -391,12 +400,19 @@ abstract class AbstractTxnHandle implements TxnHandle, Comparable<AbstractTxnHan
             return;
         }
         
-        created.add(id);
-
-        final CRDTObjectUpdatesGroup<V> operationsGroup = new CRDTObjectUpdatesGroup<V>(id, timestampMapping,
-                creationState, getUpdatesDependencyClock());
-        if (localObjectOperations.put(id, operationsGroup) != null) {
-            throw new IllegalStateException("Object creation operation was preceded by some another operation");
+        CRDTObjectUpdatesGroup<V> opGroup = (CRDTObjectUpdatesGroup<V>) localObjectOperations.get(id);
+        
+        if (toCreate.contains(id) && opGroup != null) {
+            if (opGroup.hasCreationState()) {
+                return;
+            }
+            opGroup.setCreationState(creationState);
+        } else {
+            final CRDTObjectUpdatesGroup<V> operationsGroup = new CRDTObjectUpdatesGroup<V>(id, timestampMapping,
+                    creationState, getUpdatesDependencyClock());
+            if (localObjectOperations.put(id, operationsGroup) != null) {
+                throw new IllegalStateException("Object creation operation was preceded by some another operation");
+            }
         }
         durableLog.writeEntry(getId(), id);
     }

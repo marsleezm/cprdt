@@ -17,11 +17,12 @@
 package swift.client;
 
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.SortedSet;
@@ -35,6 +36,7 @@ import swift.cprdt.core.CRDTShardQuery;
 import swift.crdt.core.CRDT;
 import swift.crdt.core.CRDTIdentifier;
 import swift.crdt.core.ManagedCRDT;
+import swift.proto.MetadataStatsCollector;
 
 /**
  * Local cache of CRDT objects with LRU eviction policy. Elements get evicted
@@ -50,17 +52,34 @@ class LRUObjectsCache {
         void onEviction(CRDTIdentifier id);
     }
 
-    private static Logger logger = Logger.getLogger(LRUObjectsCache.class.getName());
+    protected static Logger logger = Logger.getLogger(LRUObjectsCache.class.getName());
 
-    private final int maxElements;
-    private final long evictionTimeMillis;
-    private Map<CRDTIdentifier, Entry> entries;
-    private Map<CRDTIdentifier, Entry> shadowEntries;
+    protected final int maxElements;
+    protected final long maxSize;
+    protected final long evictionTimeMillis;
+    protected Map<CRDTIdentifier, Entry> entries;
+    protected Map<CRDTIdentifier, Entry> shadowEntries;
     // Version specific query cache
-    private Map<CRDTIdentifier, Map<CausalityClock,Set<CRDTShardQuery<?>>>> queryCache;
-    private Set<Long> evictionProtections;
+    protected Map<CRDTIdentifier, List<VersionedQuery>> queryCache;
+    protected long queryCacheTimeThreshold;
+    
+    protected long currentCacheSize = 0;
 
-    private EvictionListener evictionListener = new EvictionListener() {
+    protected Set<Long> evictionProtections;
+
+    protected class VersionedQuery {
+        VersionedQuery(CausalityClock version, CRDTShardQuery query, long timestamp) {
+            this.version = version;
+            this.query = query;
+            this.timestamp = timestamp;
+        }
+
+        public CausalityClock version;
+        public CRDTShardQuery<?> query;
+        public long timestamp;
+    }
+
+    protected EvictionListener evictionListener = new EvictionListener() {
         public void onEviction(CRDTIdentifier id) {
         }
     };
@@ -77,24 +96,31 @@ class LRUObjectsCache {
      *            milliseconds
      */
     @SuppressWarnings("serial")
-    public LRUObjectsCache(final long evictionTimeMillis, final int maxElements) {
+    public LRUObjectsCache(final long evictionTimeMillis, final int maxElements, final long queryCacheTimeThreshold, final long maxSizeOptional) {
 
         this.evictionTimeMillis = evictionTimeMillis;
         this.maxElements = maxElements;
+        if (maxSizeOptional == 0) {
+            this.maxSize = Long.MAX_VALUE;
+        } else {
+            this.maxSize = maxSizeOptional;
+        }
 
         entries = new LinkedHashMap<CRDTIdentifier, Entry>(32, 0.75f, true) {
             protected boolean removeEldestEntry(Map.Entry<CRDTIdentifier, Entry> eldest) {
                 Entry e = eldest.getValue();
-                if (!evictionProtections.contains(e.id()) && size() > maxElements) {
+                if (!evictionProtections.contains(e.id()) && (size() > maxElements || currentCacheSize > maxSize)) {
                     shadowEntries.remove(eldest.getKey());
                     queryCache.remove(eldest.getKey());
                     evictionListener.onEviction(eldest.getKey());
+                    
+                    currentCacheSize -= e.size();
 
                     // System.err.println(eldest.getKey() +
                     // " evicted from the cache due to size limit, acesses:"
                     // + e.getNumberOfAccesses());
 
-                    logger.info("Object evicted from the cache due to size limit, acesses:" + e.getNumberOfAccesses());
+                    logger.info("Object evicted from the cache due to size limit, accesses:" + e.getNumberOfAccesses());
                     return true;
                 } else
                     return false;
@@ -102,8 +128,9 @@ class LRUObjectsCache {
         };
         shadowEntries = new HashMap<CRDTIdentifier, Entry>();
         evictionProtections = new HashSet<Long>();
-        
-        queryCache = new HashMap<CRDTIdentifier, Map<CausalityClock,Set<CRDTShardQuery<?>>>>();
+
+        queryCache = new HashMap<CRDTIdentifier, List<VersionedQuery>>();
+        this.queryCacheTimeThreshold = queryCacheTimeThreshold;
     }
 
     void setEvictionListener(EvictionListener evictionListener) {
@@ -111,56 +138,66 @@ class LRUObjectsCache {
     }
 
     /**
-     * Adds object to the cache, possibly merging with or overriding old entry. May cause
-     * eviction due to size limit in the cache.
+     * Adds object to the cache, possibly merging with or overriding old entry.
+     * May cause eviction due to size limit in the cache.
      * 
      * @param object
      *            object to add
      * @return Merged CRDT
      */
-    synchronized public <V extends CRDT<V>> ManagedCRDT<V> add(final ManagedCRDT<V> object, long txnSerial, CRDTShardQuery<V> query, CausalityClock queryVersion) {
+    synchronized public <V extends CRDT<V>> ManagedCRDT<V> add(final ManagedCRDT<V> object, long txnSerial,
+            CRDTShardQuery<V> query, CausalityClock queryVersion) {
         if (txnSerial >= 0) {
             evictionProtections.add(txnSerial);
         }
         
+        int previousSize = 0;
+        int newSize = 0;
+
         CRDTIdentifier id = object.getUID();
-        
+
         ManagedCRDT<V> mergedObject = (ManagedCRDT) object;
 
         Entry e = shadowEntries.get(id);
         if (e != null) {
+            previousSize = e.size();
+            
             try {
-                e.getObject().merge((ManagedCRDT)object);
+                e.getObject().merge((ManagedCRDT) object);
                 mergedObject = (ManagedCRDT) e.getObject();
             } catch (IllegalStateException x) {
-                // Is it ok to do this even if there is an eviction protection on the existing version ?
+                // Is it ok to do this even if there is an eviction protection
+                // on the existing version ?
                 logger.warning("Merging incoming object version " + object.getClock() + " with the cached version "
                         + e.getObject().getClock() + " has failed with our heuristic - dropping cached version" + x);
                 queryCache.remove(id);
             }
-            
+
         }
+        
         e = new Entry(mergedObject, txnSerial);
         entries.put(id, e);
         shadowEntries.put(id, e);
         
+        newSize = e.size();
+        
+        currentCacheSize += (newSize - previousSize);
+
         if (!query.isStateIndependent() && !query.isAvailableIn(mergedObject.getShard())) {
             queryVersion = queryVersion.clone();
-            Map<CausalityClock,Set<CRDTShardQuery<?>>> cachedVersionedQueries = queryCache.get(id);
+            List<VersionedQuery> cachedVersionedQueries = queryCache.get(id);
             if (cachedVersionedQueries == null) {
-                cachedVersionedQueries = new HashMap<CausalityClock,Set<CRDTShardQuery<?>>>();
+                cachedVersionedQueries = new LinkedList<VersionedQuery>();
                 queryCache.put(id, cachedVersionedQueries);
             }
-            Set<CRDTShardQuery<?>> cachedQueries = cachedVersionedQueries.get(queryVersion);
-            if (cachedQueries == null) {
-                cachedQueries = new HashSet<CRDTShardQuery<?>>();
-                cachedVersionedQueries.put(queryVersion, cachedQueries);
-            }
-            cachedQueries.add((CRDTShardQuery)query);
+            // TODO: Might want to check if this query is not more general
+            // than other ones to prune them
+            cachedVersionedQueries.add(0,
+                    new VersionedQuery(queryVersion, (CRDTShardQuery) query, System.currentTimeMillis()));
         }
         return mergedObject;
     }
-    
+
     @SuppressWarnings({ "unchecked", "rawtypes" })
     private boolean has(final CRDTIdentifier id, CRDTShardQuery<?> query, CausalityClock version) {
         ManagedCRDT<?> crdt = getWithoutTouch(id);
@@ -171,34 +208,31 @@ class LRUObjectsCache {
             return true;
         }
         if (!query.isStateIndependent()) {
-            Map<CausalityClock,Set<CRDTShardQuery<?>>> cachedVersionedQueries = queryCache.get(id);
+            long curTime = System.currentTimeMillis();
+            List<VersionedQuery> cachedVersionedQueries = queryCache.get(id);
             if (cachedVersionedQueries != null) {
-                Collection<Set<CRDTShardQuery<?>>> relevantVersions;
-                // TODO give control to the query implementation to choose relevant version
-                // e.g. can choose to accept a version for which a query was executed on a previous version
-                // Maybe have a threshold on the number of updates between the queried version and the requested version
+                Collection<VersionedQuery> relevantVersions;
                 if (version == null) {
-                    relevantVersions = cachedVersionedQueries.values();
+                    relevantVersions = cachedVersionedQueries;
                 } else {
-                    Set<CRDTShardQuery<?>> relevantVersion = cachedVersionedQueries.get(version);
-                    if (relevantVersion == null) {
-                        relevantVersions = Collections.emptySet();
-                    } else {
-                        relevantVersions = Collections.singleton(relevantVersion);
+                    relevantVersions = new LinkedList<VersionedQuery>();
+                    for (VersionedQuery element : cachedVersionedQueries) {
+                        long timeThreshold = element.query.allowedCacheTimeThreshold(queryCacheTimeThreshold);
+                        // Correct version or the query was done less than timeThreshold ms ago
+                        if ((timeThreshold >= 0 && (curTime - element.timestamp) <= timeThreshold)
+                                || element.version.compareTo(version) == CausalityClock.CMP_CLOCK.CMP_EQUALS) {
+                            relevantVersions.add(element);
+                        }
                     }
                 }
-                for (Set<CRDTShardQuery<?>> cachedQueries: relevantVersions) {
-                    if (cachedQueries != null) {
-                        for (CRDTShardQuery<?> cachedQuery: cachedQueries) {
-                            if (query.isSubqueryOf((CRDTShardQuery)cachedQuery)) {
-                                return true;
-                            }
-                        }
+                for (VersionedQuery element : relevantVersions) {
+                    if (query.isSubqueryOf((CRDTShardQuery) element.query)) {
+                        return true;
                     }
                 }
             }
         }
-        
+
         return false;
     }
 
@@ -217,8 +251,9 @@ class LRUObjectsCache {
         entry.touch();
         return entry.getObject();
     }
-    
-    synchronized public ManagedCRDT<?> getAndTouch(final CRDTIdentifier id, CRDTShardQuery<?> query, CausalityClock version) {
+
+    synchronized public ManagedCRDT<?> getAndTouch(final CRDTIdentifier id, CRDTShardQuery<?> query,
+            CausalityClock version) {
         if (!has(id, query, version)) {
             return null;
         }
@@ -242,16 +277,19 @@ class LRUObjectsCache {
      * Evicts all objects that have not been accessed for over
      * evictionTimeMillis specified for this cache.
      */
-    private void evictExcess() {
+    protected void evictExcess() {
         int evictedObjects = 0;
         int excess = entries.size() - maxElements;
+        long excessSize = currentCacheSize - maxSize;
+        long evictedSize = 0;
         for (Iterator<Map.Entry<CRDTIdentifier, Entry>> it = entries.entrySet().iterator(); it.hasNext();) {
-            if (evictedObjects < excess) {
+            if (evictedObjects < excess || excessSize > evictedSize) {
                 Map.Entry<CRDTIdentifier, Entry> e = it.next();
                 final Entry val = e.getValue();
                 if (!evictionProtections.contains(val.id())) {
                     it.remove();
                     evictedObjects++;
+                    evictedSize += val.size();
                     shadowEntries.remove(e.getKey());
                     evictionListener.onEviction(e.getKey());
                     // System.err.println( e.getKey() +
@@ -261,11 +299,12 @@ class LRUObjectsCache {
             } else
                 break;
         }
+        currentCacheSize -= evictedSize;
         if (evictedObjects > 0) {
             // System.err.printf("Objects evicted from the cache due to excessive size: %s / %s / %s\n",
             // evictedObjects,
             // entries.size(), maxElements);
-            logger.info(evictedObjects + " objects evicted from the cache due to timeout");
+            logger.info(evictedObjects + " (size "+evictedSize+") objects evicted from the cache due to excessive size");
         }
     }
 
@@ -273,23 +312,28 @@ class LRUObjectsCache {
      * Evicts all objects that have not been accessed for over
      * evictionTimeMillis specified for this cache.
      */
-    private void evictOutdated() {
+    protected void evictOutdated() {
         long now = System.currentTimeMillis();
-        final long evictionThreashold = now - evictionTimeMillis;
+        final long evictionThreshold = now - evictionTimeMillis;
 
         int evictedObjects = 0;
+        long evictedSize = 0;
         for (Iterator<Map.Entry<CRDTIdentifier, Entry>> it = entries.entrySet().iterator(); it.hasNext();) {
             Map.Entry<CRDTIdentifier, Entry> e = it.next();
             final Entry entry = e.getValue();
-            if (entry.getLastAcccessTimeMillis() <= evictionThreashold) {
+            if (entry.getLastAcccessTimeMillis() <= evictionThreshold) {
                 it.remove();
                 evictedObjects++;
+                evictedSize += entry.size();
                 shadowEntries.remove(e.getKey());
                 evictionListener.onEviction(e.getKey());
             } else {
                 break;
             }
         }
+        
+        currentCacheSize -= evictedSize;
+        
         // if (evictedObjects > 0)
         // System.err.println(evictedObjects +
         // " objects evicted from the cache due to timeout");
@@ -302,7 +346,6 @@ class LRUObjectsCache {
             entry.object.augmentWithDCClockWithoutMappings(causalClock);
         }
     }
-    
 
     synchronized void pruneAll(CausalityClock nextPruneClock) {
         for (final Entry entry : entries.values()) {
@@ -313,7 +356,6 @@ class LRUObjectsCache {
             }
         }
     }
-
 
     synchronized void augmentAllWithScoutTimestampWithoutMappings(Timestamp clientTimestamp) {
         for (final Entry entry : entries.values()) {
@@ -329,16 +371,18 @@ class LRUObjectsCache {
 
     static AtomicLong g_serial = new AtomicLong();
 
-    private final class Entry implements Comparable<Entry> {
+    protected final class Entry implements Comparable<Entry> {
         private final ManagedCRDT<?> object;
         private long lastAccessTimeMillis;
         private long accesses;
         private long txnId;
         private long serial = g_serial.incrementAndGet();
+        private int size;
 
         public Entry(final ManagedCRDT<?> object, long txnId) {
             this.object = object;
             this.txnId = txnId;
+            this.size = object.estimatedSize();
             touch();
         }
 
@@ -348,6 +392,10 @@ class LRUObjectsCache {
 
         public ManagedCRDT<?> getObject() {
             return object;
+        }
+        
+        public int size() {
+            return size;
         }
 
         public long getLastAcccessTimeMillis() {
@@ -370,5 +418,13 @@ class LRUObjectsCache {
             else
                 return accesses < other.accesses ? -1 : 1;
         }
+    }
+
+    public int numberOfObjects() {
+        return entries.size();
+    }
+
+    public long currentCacheSize() {
+        return currentCacheSize;
     }
 }

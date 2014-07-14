@@ -16,9 +16,12 @@
  *****************************************************************************/
 package swift.client;
 
+import java.lang.reflect.Constructor;
+
 import swift.clocks.CausalityClock;
 import swift.clocks.TimestampMapping;
 import swift.cprdt.core.CRDTShardQuery;
+import swift.cprdt.core.Shard;
 import swift.crdt.core.CRDT;
 import swift.crdt.core.CRDTIdentifier;
 import swift.crdt.core.CachePolicy;
@@ -106,8 +109,23 @@ class SnapshotIsolationTxnHandle extends AbstractTxnHandle implements TxnHandle 
                 }
             }
         } else {
-            localView = manager.getObjectVersionTxnView(this, id, getUpdatesDependencyClock().clone(), create, classOfV,
-                    updatesListener, query);
+            CausalityClock clock = getUpdatesDependencyClock().clone();
+            if (updatesListener == null && create && query.isAvailableIn(Shard.hollow)) {
+                final V checkpoint;
+                try {
+                    final Constructor<V> constructor = classOfV.getConstructor(CRDTIdentifier.class);
+                    checkpoint = constructor.newInstance(id);
+                    checkpointCache.put(id, checkpoint.copy());
+                    checkpoint.setShard(Shard.hollow);
+                    toCreate.add(id);
+                    localView = checkpoint.copyWith(this, clock);
+                } catch (Exception e) {
+                    throw new WrongTypeException(e.getMessage());
+                }
+            } else {
+                localView = manager.getObjectVersionTxnView(this, id, clock, create, classOfV,
+                        updatesListener, query);
+            }
             objectViewsCache.put(id, localView);
             updateUpdatesDependencyClock(localView.getClock());
         }

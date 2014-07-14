@@ -19,6 +19,7 @@ package swift.client;
 import swift.crdt.core.CRDTIdentifier;
 import sys.stats.Stats;
 import sys.stats.sources.CounterSignalSource;
+import sys.stats.sources.PollingBasedValueProvider;
 
 /**
  * Statistics of Swift scout cache performance.
@@ -32,12 +33,24 @@ public class CoarseCacheStats {
     private CounterSignalSource cacheMissWrongVersion;
     private CounterSignalSource cacheMissBizarre;
 
-    public CoarseCacheStats(Stats stats) {
+    public CoarseCacheStats(Stats stats, final LRUObjectsCache cache) {
         this.stats = stats;
         this.cacheHits = this.stats.getCountingSourceForStat("cache:hits");
         this.cacheMissNoObject = this.stats.getCountingSourceForStat("cache:miss-no-object");
         this.cacheMissWrongVersion = this.stats.getCountingSourceForStat("cache:miss-wrong-version");
         this.cacheMissBizarre = this.stats.getCountingSourceForStat("cache:miss-bizarre");
+        stats.registerPollingBasedValueProvider("cache:size-elements", new PollingBasedValueProvider() {
+            @Override
+            public double poll() {
+                return cache.numberOfObjects();
+            }
+        }, 500);
+        stats.registerPollingBasedValueProvider("cache:size-estimate", new PollingBasedValueProvider() {
+            @Override
+            public double poll() {
+                return cache.currentCacheSize();
+            }
+        }, 500);
     }
 
     public void addCacheHit(final CRDTIdentifier id) {

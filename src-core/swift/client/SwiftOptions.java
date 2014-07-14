@@ -37,6 +37,8 @@ final public class SwiftOptions {
 
     public static final long DEFAULT_CACHE_EVICTION_MILLIS = 60 * 1000;
     public static final int DEFAULT_CACHE_SIZE = 512;
+    public static final long DEFAULT_CACHE_SIZE_LIMIT = 0;
+    public static final long DEFAULT_QUERY_CACHE_TIME_THRESHOLD = -1;
     public static final int DEFAULT_MAX_COMMIT_BATCH_SIZE = 1;
     public static final String DEFAULT_LOG_FILENAME = null;
     public static final boolean DEFAULT_LOG_FLUSH_ON_COMMIT = false;
@@ -58,6 +60,8 @@ final public class SwiftOptions {
     private int deadlineMillis = DEFAULT_DEADLINE_MILLIS;
     private long cacheEvictionTimeMillis = DEFAULT_CACHE_EVICTION_MILLIS;
     private int cacheSize = DEFAULT_CACHE_SIZE;
+    private long cacheSizeLimit = DEFAULT_CACHE_SIZE_LIMIT;
+    private long queryCacheTimeThreshold = DEFAULT_QUERY_CACHE_TIME_THRESHOLD;
     private int notificationTimeoutMillis = DEFAULT_NOTIFICATION_TIMEOUT_MILLIS;
     private int maxCommitBatchSize = DEFAULT_MAX_COMMIT_BATCH_SIZE;
     private String logFilename = DEFAULT_LOG_FILENAME;
@@ -133,6 +137,16 @@ final public class SwiftOptions {
         }
         try {
             this.cacheSize = Integer.parseInt(defaultValues.getProperty("swift.cacheSize"));
+        } catch (NumberFormatException x) {
+            // ignore
+        }
+        try {
+            this.cacheSizeLimit = Long.parseLong(defaultValues.getProperty("swift.cacheSizeLimit"));
+        } catch (NumberFormatException x) {
+            // ignore
+        }
+        try {
+            this.queryCacheTimeThreshold = Long.parseLong(defaultValues.getProperty("swift.queryCacheTimeThreshold"));
         } catch (NumberFormatException x) {
             // ignore
         }
@@ -322,6 +336,28 @@ final public class SwiftOptions {
      */
     public void setCacheSize(int cacheSize) {
         this.cacheSize = cacheSize;
+    }
+
+    /**
+     * @return maximum size of the cache
+     */
+    public long getCacheSizeLimit() {
+        return cacheSizeLimit;
+    }
+    /**
+     * @param cacheSize
+     *            maximum size of the cache, 0 is no limit
+     */
+    public void setCacheSizeLimit(long cacheSizeLimit) {
+        this.cacheSizeLimit = cacheSizeLimit;
+    }
+    
+    public void setQueryCacheTimeThreshold(long queryCacheTimeThreshold) {
+        this.queryCacheTimeThreshold = queryCacheTimeThreshold;
+    }
+
+    public long getQueryCacheTimeThreshold() {
+        return queryCacheTimeThreshold;
     }
 
     /**
