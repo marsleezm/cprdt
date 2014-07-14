@@ -58,6 +58,8 @@ public interface CRDT<V extends CRDT<V>> extends Copyable {
      * @return observable content of the object (without metadata)
      */
     Object getValue();
+    
+    int estimatedSize();
 
     /**
      * @return unique id of this object
@@ -86,8 +88,8 @@ public interface CRDT<V extends CRDT<V>> extends Copyable {
      * <b>INTERNAL, SYSTEM USE.</b>
      * 
      * Merge this part of CRDT with another part on the same version
-     * This replica can have non-committed changes so in case of overlapping
-     * the parts of this must be chosen over the parts of other
+     * This CRDT can have non-committed changes so in case of overlapping
+     * the parts of 'this' must be chosen over the parts of 'other'
      * Only used when at least one of the CRDTs is not a full replica
      * 
      * @param other

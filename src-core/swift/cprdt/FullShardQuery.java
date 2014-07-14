@@ -31,4 +31,9 @@ public class FullShardQuery<V extends CRDT<V>> implements CRDTShardQuery<V> {
     public boolean isStateIndependent() {
         return true;
     }
+    
+    @Override
+    public long allowedCacheTimeThreshold(long systemThreshold) {
+        return -1;
+    }
 }

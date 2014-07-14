@@ -247,6 +247,18 @@ public class CRDTObjectUpdatesGroup<V extends CRDT<V>> {
     public V getCreationState() {
         return creationState;
     }
+    
+
+
+    /**
+     * 
+     */
+    public void setCreationState(V creationState) {
+        if (hasCreationState()) {
+            throw new IllegalStateException("Trying to update transaction's creation state");
+        }
+        this.creationState = creationState;
+    }
 
     /**
      * @param newDependencyClock

@@ -23,6 +23,9 @@ import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
 
+import com.esotericsoftware.kryo.Kryo;
+import com.esotericsoftware.kryo.io.Output;
+
 import swift.clocks.CausalityClock;
 import swift.clocks.CausalityClock.CMP_CLOCK;
 import swift.clocks.ClockFactory;
@@ -30,6 +33,7 @@ import swift.clocks.Timestamp;
 import swift.clocks.TimestampMapping;
 import swift.cprdt.core.CRDTShardQuery;
 import swift.cprdt.core.Shard;
+import swift.proto.MetadataStatsCollector;
 
 /**
  * Generic manager of an operation-based CRDT implementation V that provides
@@ -120,6 +124,14 @@ public class ManagedCRDT<V extends CRDT<V>> {
      */
     public CRDTIdentifier getUID() {
         return this.id;
+    }
+    
+    /**
+     * For stats
+     * @return
+     */
+    public int getNumberOfUpdates() {
+        return strippedLog.size();
     }
 
     /**
@@ -467,10 +479,6 @@ public class ManagedCRDT<V extends CRDT<V>> {
             clock.merge(dependencyClock);
         } // else: dependenciesPolicy ==IGNORE
 
-        if (ops.hasCreationState()) {
-            registeredInStore = true;
-        }
-
         boolean newOperation = true;
         for (final Timestamp timestamp : ops.getTimestamps()) {
             newOperation &= clock.record(timestamp);
@@ -697,5 +705,20 @@ public class ManagedCRDT<V extends CRDT<V>> {
     public String toString() {
         return String.format("[id=%s,clock=%s,pruneClock=%s,registered=%b,checkpoint=%s,log=%s", id, clock, pruneClock,
                 registeredInStore, checkpoint, strippedLog);
+    }
+    
+    public int estimatedSize() {
+        return checkpoint.estimatedSize() + strippedLog.size();
+    }
+
+    public int computeSize(MetadataStatsCollector collector) {
+        Kryo kryo = collector.getFreshKryo();
+        Output buffer = collector.getFreshKryoBuffer();
+
+        kryo.writeObject(buffer, this);
+        final int totalSize = buffer.position();
+        buffer.clear();
+        
+        return totalSize;
     }
 }

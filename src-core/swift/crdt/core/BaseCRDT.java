@@ -158,6 +158,9 @@ public abstract class BaseCRDT<V extends BaseCRDT<V>> implements CRDT<V> {
     @SuppressWarnings("unchecked")
     @Override
     public void fetch(Set<?> particles) throws VersionNotFoundException, NetworkException {
+        if (this.getTxnHandle() == null) {
+            return;
+        }
         try {
             this.getTxnHandle().fetch(this.getUID(), this.getClass(), particles);
         } catch (WrongTypeException e) {
@@ -167,6 +170,9 @@ public abstract class BaseCRDT<V extends BaseCRDT<V>> implements CRDT<V> {
     @SuppressWarnings("unchecked")
     @Override
     public void fetch(CRDTShardQuery<V> query) throws VersionNotFoundException, NetworkException {
+        if (this.getTxnHandle() == null) {
+            return;
+        }
         try {
             this.getTxnHandle().fetch(this.getUID(), (Class<V>) this.getClass(), query);
         } catch (WrongTypeException e) {
@@ -195,5 +201,10 @@ public abstract class BaseCRDT<V extends BaseCRDT<V>> implements CRDT<V> {
         v.txn = txnHandle;
         v.clock = clock;
         return v;
+    }
+    
+    @Override
+    public int estimatedSize() {
+        return 1;
     }
 }

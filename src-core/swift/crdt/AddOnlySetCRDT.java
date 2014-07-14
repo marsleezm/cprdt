@@ -35,6 +35,11 @@ public class AddOnlySetCRDT<V> extends BaseCRDT<AddOnlySetCRDT<V>> {
         this.elements = elements;
         this.setShard(shard);
     }
+    
+    @Override
+    public int estimatedSize() {
+        return elements.size();
+    }
 
     public void add(V element) {
         this.applyAdd(element);

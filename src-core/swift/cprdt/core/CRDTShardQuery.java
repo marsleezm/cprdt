@@ -50,4 +50,6 @@ public interface CRDTShardQuery<V extends CRDT<V>> {
      * @return
      */
     boolean isSubqueryOf(CRDTShardQuery<V> other);
+    
+    long allowedCacheTimeThreshold(long systemThreshold);
 }

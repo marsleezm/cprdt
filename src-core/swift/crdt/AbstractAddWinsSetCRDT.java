@@ -78,6 +78,11 @@ public abstract class AbstractAddWinsSetCRDT<V, T extends AbstractAddWinsSetCRDT
         return getElementsInstances().size();
     }
     
+    @Override
+    public int estimatedSize() {
+        return size();
+    }
+    
     public int fullSize() throws VersionNotFoundException, NetworkException {
         fetch(new FullShardQuery());
         return size();
