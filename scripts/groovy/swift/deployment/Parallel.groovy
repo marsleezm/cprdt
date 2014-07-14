@@ -13,14 +13,12 @@ class Parallel {
 
     static Map rsh( List<String> hosts, Closure cmd,  Closure resHandler, boolean ignoreIO, int timeout ) {
         def res = new ConcurrentHashMap<String, Process>()
-
-        hosts.each { String it ->
-            threads.execute( new Runnable() {
-                        public void run() {
+        hosts.each { String host ->
+            threads.execute( {
                             def cmdline = [
                                 "ssh",
-                                String.format("%s@%s", userName(), it),
-                                cmd.call(it)
+                                String.format("%s@%s", userName(), host),
+                                cmd.call(host)
                             ]
                             
                             println cmdline
@@ -29,15 +27,14 @@ class Parallel {
                             Thread.startDaemon {
                                 proc.inputStream.eachLine { if( ! ignoreIO ) println it }
                             }
+                            
                             proc.waitFor();
-                            res[it] = proc
+                            res[host] = proc
                             int result = proc.exitValue()
-                            resHandler.call( it, result );
+                            resHandler.call( host, result );
                             notifyAllOn( res )
-                        }
-                    });
+                        })
         }
-
         long deadline = System.currentTimeMillis() + timeout * 1000
         while( ( res.size() != hosts.size() ) && System.currentTimeMillis() < deadline)
             waitOn(res, Math.min(1000, deadline - System.currentTimeMillis()))
@@ -53,21 +50,19 @@ class Parallel {
     static Map exec( List<String> hosts, Closure cmd,  Closure resHandler, boolean discardIO, int timeout ) {
         def res = new ConcurrentHashMap<String, Process>()
 
-        hosts.each { String it ->
-            threads.execute( new Runnable() {
-                        public void run() {
-                            def cmdline = cmd.call(it)
-                            Process proc = new ProcessBuilder(cmdline).redirectErrorStream(true).start()
-                            Thread.startDaemon {
-                                proc.inputStream.eachLine { if( ! discardIO ) println it }
-                            }
-                            proc.waitFor();
-                            res[it] = proc
-                            int result = proc.exitValue()
-                            resHandler.call( it, result );
-                            notifyAllOn( res )
+        hosts.each { String host ->
+            threads.execute( {
+                        def cmdline = cmd.call(host)
+                        Process proc = new ProcessBuilder(cmdline).redirectErrorStream(true).start()
+                        Thread.startDaemon {
+                            proc.inputStream.eachLine { if( ! discardIO ) println it }
                         }
-                    });
+                        proc.waitFor();
+                        res[host] = proc
+                        int result = proc.exitValue()
+                        resHandler.call( host, result );
+                        notifyAllOn( res )
+                    } )
         }
 
         long deadline = System.currentTimeMillis() + timeout * 1000

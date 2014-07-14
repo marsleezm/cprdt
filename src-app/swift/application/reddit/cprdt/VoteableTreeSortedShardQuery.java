@@ -14,15 +14,22 @@ public class VoteableTreeSortedShardQuery<V extends Date<V>, U> implements CRDTS
     protected SortingOrder sort;
     protected int limit;
     
+    protected boolean strictMatching;
+    
     // Kryo
     public VoteableTreeSortedShardQuery() {
     }
     
     public VoteableTreeSortedShardQuery(SortedNode<V> node, int context, SortingOrder sort, int limit) {
+        this(node, context, sort, limit, false);
+    }
+    
+    public VoteableTreeSortedShardQuery(SortedNode<V> node, int context, SortingOrder sort, int limit, boolean strictMatching) {
         this.node = node;
         this.context = context;
         this.sort = sort;
         this.limit = limit;
+        this.strictMatching = strictMatching;
     }
 
     @Override
@@ -57,5 +64,14 @@ public class VoteableTreeSortedShardQuery<V extends Date<V>, U> implements CRDTS
     @Override
     public boolean isAvailableIn(Shard shard) {
         return shard.isFull();
+    }
+    
+    @Override
+    public long allowedCacheTimeThreshold(long systemThreshold) {
+        if (strictMatching) {
+            return -1;
+        } else {
+            return systemThreshold;
+        }
     }
 }

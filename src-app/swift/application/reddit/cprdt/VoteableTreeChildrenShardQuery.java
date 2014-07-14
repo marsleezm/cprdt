@@ -44,4 +44,9 @@ public class VoteableTreeChildrenShardQuery<V extends Date<V>, U> implements CRD
     public boolean isAvailableIn(Shard shard) {
         return shard.isFull();
     }
+    
+    @Override
+    public long allowedCacheTimeThreshold(long systemThreshold) {
+        return systemThreshold;
+    }
 }

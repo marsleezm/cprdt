@@ -17,9 +17,11 @@
 package swift.application.reddit;
 
 import java.io.PrintStream;
+import java.util.Collection;
 import java.util.List;
 import java.util.Properties;
 import java.util.Random;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import swift.application.reddit.cprdt.SortedNode;
@@ -52,6 +54,7 @@ public class RedditApp {
     protected boolean subscribeUpdates;
     protected boolean asyncCommit;
 
+
     protected int linksPerQuery;
     protected int commentsPerQuery;
 
@@ -73,23 +76,28 @@ public class RedditApp {
         server = Args.valueOf(args, "-servers", "localhost");
     }
 
-    public void generateInitialDataFromConfig(Properties properties) {
+    public void generateInitialDataFromConfig(Properties properties, boolean initDB) {
         final int numUsers = Props.intValue(properties, "swiftlinks.numUsers", 50);
         final int numSubreddits = Props.intValue(properties, "swiftlinks.numSubreddits", 5);
         final int numLinks = Props.intValue(properties, "swiftlinks.numLinks", 200);
         final int avgCommentsPerLink = Props.intValue(properties, "swiftlinks.avgCommentsPerLink", 10);
-        final int avgVotesPerLink = Props.intValue(properties, "swiftlinks.avgVotesPerLink", 10);
-        final int downToUpLinkRatio = Props.intValue(properties, "swiftlinks.downToUpLinkRatio", 75);
-        final int avgVotesPerComment = Props.intValue(properties, "swiftlinks.avgVotesPerComment", 5);
-        final int downToUpCommentRatio = Props.intValue(properties, "swiftlinks.downToUpCommentRatio", 75);
+        final int avgUpvotesPerLink = Props.intValue(properties, "swiftlinks.avgUpvotesPerLink", 10);
+        final int avgDownvotesPerLink = Props.intValue(properties, "swiftlinks.avgDownvotesPerLink", 7);
+        final int avgUpvotesPerComment = Props.intValue(properties, "swiftlinks.avgUpvotesPerComment", 6);
+        final int avgDownvotesPerComment = Props.intValue(properties, "swiftlinks.avgDownvotesPerComment", 3);
 
-        Random rg = new Random(6L);
-
-        Workload.generateData(rg, numUsers, numSubreddits, numLinks, avgCommentsPerLink, avgVotesPerLink,
-                downToUpLinkRatio, avgVotesPerComment, downToUpCommentRatio);
+        Random rg1 = new Random(6L);
+        Random rg2 = new Random(13L);
+        
+        if (initDB) {
+            Workload.generateDataForDB(rg1, rg2, numUsers, numSubreddits, numLinks, avgCommentsPerLink, avgUpvotesPerLink,
+                    avgDownvotesPerLink, avgUpvotesPerComment, avgDownvotesPerComment);
+        } else {
+            Workload.generateDataForClient(rg1, numUsers, numSubreddits, numLinks, avgCommentsPerLink, 2);
+        }
     }
 
-    public void populateWorkloadFromConfig() {
+    public void populateWorkloadFromConfig(boolean initDB) {
 
         props = Props.parseFile("reddit", bufferedOutput, "swiftlinks-test.props");
         isolationLevel = IsolationLevel.valueOf(Props.get(props, "swift.isolationLevel"));
@@ -106,28 +114,29 @@ public class RedditApp {
         opGroups = Props.intValue(props, "swiftlinks.opGroups", 50);
         thinkTime = Props.intValue(props, "swiftlinks.thinkTime", 1000);
 
-        generateInitialDataFromConfig(props);
+        generateInitialDataFromConfig(props, initDB);
     }
 
     public Workload getWorkloadFromConfig(int site, int numberOfSites, boolean loggedIn) {
         if (props == null)
-            populateWorkloadFromConfig();
+            populateWorkloadFromConfig(false);
         return Workload.doMixed(site, loggedIn, biasedOps, randomOps, opGroups, numberOfSites, startingDate);
     }
 
-    public RedditPartialReplicas getReddit(final String sessionId) {
+    public RedditPartialReplicas getReddit(final String sessionId, boolean lazy) {
         final SwiftOptions options = new SwiftOptions(server, DCConstants.SURROGATE_PORT, props);
+        
         if (options.hasMetadataStatsCollector()) {
             options.setMetadataStatsCollector(new MetadataStatsCollectorImpl(sessionId, bufferedOutput));
         }
         SwiftSession swiftClient = SwiftImpl.newSingleSessionInstance(options);
         RedditPartialReplicas redditClient = new RedditPartialReplicas(swiftClient, isolationLevel, cachePolicy,
-                sessionId);
+                sessionId, lazy);
         return redditClient;
     }
 
-    void runClientSession(final String sessionId, final Workload commands, boolean loop4Ever) {
-        final RedditPartialReplicas redditClient = getReddit(sessionId);
+    void runClientSession(final String sessionId, final Workload commands, boolean loop4Ever, AtomicBoolean running, boolean lazy) {
+        final RedditPartialReplicas redditClient = getReddit(sessionId, lazy);
 
         totalCommands.addAndGet(commands.size());
         final long sessionStartTime = System.currentTimeMillis();
@@ -137,6 +146,10 @@ public class RedditApp {
         do
             for (String cmdLine : commands) {
                 long txnStartTime = System.currentTimeMillis();
+                if (!running.get()) {
+                    loop4Ever = false;
+                    break;
+                }
                 Commands cmd = runCommandLine(redditClient, cmdLine);
                 long txnEndTime = System.currentTimeMillis();
                 final long txnExecTime = txnEndTime - txnStartTime;
@@ -177,7 +190,7 @@ public class RedditApp {
                 if (!toks[3].isEmpty()) {
                     // Read 'older' links
                     int linkIndex = Integer.parseInt(toks[3]);
-                    after = Workload.getLinks().getData().get(linkIndex);
+                    after = Workload.getLinks().getData().get(linkIndex % Workload.getLinks().size());
                 }
 
                 redditClient.links(toks[1], SortingOrder.valueOf(toks[2]), null, after, linksPerQuery);
@@ -226,7 +239,7 @@ public class RedditApp {
                 } else {
                     if (!toks[2].isEmpty()) {
                         int index = Integer.parseInt(toks[2]);
-                        comment = Workload.getComments().getData().get(index);
+                        comment = Workload.getComments().getData().get(index % Workload.getComments().size());
                     }
                 }
                 redditClient.comment(linkId, comment, Long.parseLong(toks[3]), toks[4]);
@@ -244,13 +257,13 @@ public class RedditApp {
                     link = lastLinks.get(Integer.valueOf(toks[3]) % lastLinks.size());
                 } else {
                     int index = Integer.parseInt(toks[1]);
-                    link = Workload.getLinks().getData().get(index);
+                    link = Workload.getLinks().getData().get(index % Workload.getLinks().size());
                 }
                 redditClient.voteLink(link, VoteDirection.valueOf(toks[2]));
                 break;
             }
         case VOTE_COMMENT:
-            if (toks.length == 5) {
+            if (toks.length == 4) {
                 SortedNode<Comment> comment;
                 if (toks[1].isEmpty()) {
                     List<SortedNode<Comment>> comments = redditClient.getCommentList();
@@ -264,7 +277,7 @@ public class RedditApp {
                     comment = comments.get(random % comments.size());
                 } else {
                     int index = Integer.parseInt(toks[1]);
-                    comment = Workload.getComments().getData().get(index);
+                    comment = Workload.getComments().getData().get(index % Workload.getComments().size());
                 }
                 redditClient.voteComment(comment, VoteDirection.valueOf(toks[2]));
                 break;
@@ -305,8 +318,10 @@ public class RedditApp {
                 }
 
                 processor.init(client, txn, element);
-
-                System.out.printf("\rDone: %s", Progress.percentage(counter.incrementAndGet(), total));
+                int val = counter.incrementAndGet();
+                if (txnSize == 0) {
+                    System.err.printf("\nDone: %s", Progress.percentage(val, total));
+                }
             }
             // Commit the last batch
             if (!txn.getStatus().isTerminated()) {

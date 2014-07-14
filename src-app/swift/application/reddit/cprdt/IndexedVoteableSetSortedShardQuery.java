@@ -15,15 +15,22 @@ public class IndexedVoteableSetSortedShardQuery<V extends Date<V>, U> implements
     protected V before;
     protected int limit;
     
+    protected boolean strictMatching;
+    
     // Kryo
     public IndexedVoteableSetSortedShardQuery() {
     }
     
     public IndexedVoteableSetSortedShardQuery(SortingOrder sort, V after, V before, int limit) {
+        this(sort, after, before, limit, false);
+    }
+    
+    public IndexedVoteableSetSortedShardQuery(SortingOrder sort, V after, V before, int limit, boolean strictMatching) {
         this.sort = sort;
         this.after = after;
         this.before = before;
         this.limit = limit;
+        this.strictMatching = strictMatching;
     }
 
     @Override
@@ -63,5 +70,14 @@ public class IndexedVoteableSetSortedShardQuery<V extends Date<V>, U> implements
     @Override
     public boolean isAvailableIn(Shard shard) {
         return shard.isFull();
+    }
+    
+    @Override
+    public long allowedCacheTimeThreshold(long systemThreshold) {
+        if (strictMatching) {
+            return -1;
+        } else {
+            return systemThreshold;
+        }
     }
 }

@@ -157,16 +157,30 @@ class Tools {
         Parallel.exec( hosts, cmd, resHandler, verbose, timeout)
     }
 
-    static void pslurp( List hosts, String src, String dstDirPath, String dst, int timeout, boolean verbose = false) {
+    static void pslurp( List hosts, String src, String dstDirPath, String dst, int timeout, boolean verbose = false, boolean recursive = false) {
         println "SLURP: " + src + " TO " + dstDirPath + "/" + dst
         def cmd = { host ->
-            File f = new File(dstDirPath + "/" + host + "/");
+            File f;
+						if (recursive) {
+								f = new File(dstDirPath + "/" + host + "/" + dst);
+						} else {
+								f = new File(dstDirPath + "/" + host + "/");
+						}
             f.mkdirs()
-            [
-                "scp",
-                String.format("%s@%s:%s", userName(), host, src),
-                f.absolutePath + "/" + dst
-            ]
+						if (recursive) {
+								[
+										"scp",
+										"-r",
+										String.format("%s@%s:%s", userName(), host, src),
+										f.absolutePath + "/"
+								]
+						} else {
+								[
+										"scp",
+										String.format("%s@%s:%s", userName(), host, src),
+										f.absolutePath + "/" + dst
+								]
+						}
         }
 
         AtomicInteger n = new AtomicInteger();

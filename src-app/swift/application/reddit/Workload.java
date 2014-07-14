@@ -42,6 +42,7 @@ abstract public class Workload implements Iterable<String>, Iterator<String> {
 
     private static final int MAX_SITES = 1321;
     private static boolean generated = false;
+    private static boolean generatedSmall = false;
     /** List of user names */
     private static List<String> users = new ArrayList<String>();
     /** List of subreddits */
@@ -103,18 +104,33 @@ abstract public class Workload implements Iterable<String>, Iterator<String> {
                 NoSuchObjectException, VersionNotFoundException, NetworkException;
     }
 
-    public static void generateData(Random rg, int numUsers, int numSubreddits, int numLinks, int avgCommentsPerLink,
-            int avgVotesPerLink, int downToUpLinkRatio, int avgVotesPerComment, int downToUpCommentRatio) {
+    public static void generateDataForDB(Random rg1, Random rg2, int numUsers, int numSubreddits, int numLinks, int avgCommentsPerLink,
+            int avgUpvotesPerLink, int avgDownvotesPerLink, int avgUpvotesPerComment, int avgDownvotesPerComment) {
         if (generated) {
+            return;
+        }
+        generateDataForClient(rg1, numUsers, numSubreddits, numLinks, avgCommentsPerLink, Integer.MAX_VALUE);
+        
+        generateLinkVotes(rg2, avgUpvotesPerLink, avgDownvotesPerLink);
+        generateCommentVotes(rg2, avgUpvotesPerComment, avgDownvotesPerComment);
+        generated = true;
+    }
+    
+    private static int getExponentiallyDistributed(Random rg, int avg) {
+        double rand = 1. - rg.nextDouble();
+        Double result = -Math.log(rand)*avg;
+        return Math.min(result.intValue(), 50*avg);
+    }
+    
+    public static void generateDataForClient(Random rg, int numUsers, int numSubreddits, int numLinks, int avgCommentsPerLink, int commentsToKeep) {
+        if (generated || generatedSmall) {
             return;
         }
         generateUsers(rg, numUsers);
         generateSubreddits(rg, numSubreddits);
         generateLinks(rg, numLinks);
-        generateComments(rg, avgCommentsPerLink);
-        generateLinkVotes(rg, avgVotesPerLink, downToUpLinkRatio);
-        generateCommentVotes(rg, avgVotesPerComment, downToUpCommentRatio);
-        generated = true;
+        generateComments(rg, avgCommentsPerLink, commentsToKeep);
+        generatedSmall = true;
     }
 
     public static DataInit<String> getUsers() {
@@ -182,7 +198,7 @@ abstract public class Workload implements Iterable<String>, Iterator<String> {
      * attributes such as password and email
      */
     private static void generateUsers(Random rg, int numUsers) {
-        System.out.println("Generating users...");
+        System.out.println(";Generating users...");
         for (int i = 0; i < numUsers; i++) {
             byte[] tmp = new byte[6];
             rg.nextBytes(tmp);
@@ -194,7 +210,7 @@ abstract public class Workload implements Iterable<String>, Iterator<String> {
     }
 
     private static void generateSubreddits(Random rg, int numSubs) {
-        System.out.println("Generating subreddits...");
+        System.out.println(";Generating subreddits...");
         for (int i = 0; i < numSubs; i++) {
             byte[] tmp = new byte[6];
             rg.nextBytes(tmp);
@@ -215,7 +231,7 @@ abstract public class Workload implements Iterable<String>, Iterator<String> {
      * Generates random links
      */
     private static void generateLinks(Random rg, int numLinks) {
-        System.out.println("Generating links...");
+        System.out.println(";Generating links...");
 
         for (int i = 0; i < numLinks; i++) {
             String linkId = String.valueOf(i);
@@ -224,22 +240,17 @@ abstract public class Workload implements Iterable<String>, Iterator<String> {
             long date = currentDate;
             currentDate += rg.nextInt(20000);
 
-            String title = "Link number " + i;
-            String url = "http://www.test.com/" + i;
-
-            links.add(new Link(linkId, author, subreddit, title, date, false, url, ""));
+            links.add(new Link(linkId, author, subreddit, "Link title", date, false, "http://www.test.com/", ""));
         }
     }
 
     /**
      * Generates random comments
      */
-    private static void generateComments(Random rg, int avgPerLink) {
-        System.out.println("Generating comments...");
+    private static void generateComments(Random rg, int avgPerLink, int commentsToKeep) {
+        System.out.println(";Generating comments...");
 
-        int maxComments = (avgPerLink * 2) + 1;
-
-        List<SortedNode<Comment>> linkComments = new ArrayList<SortedNode<Comment>>(maxComments);
+        List<SortedNode<Comment>> linkComments = new ArrayList<SortedNode<Comment>>(avgPerLink*2);
 
         int i = 0;
         for (Link link : links) {
@@ -247,14 +258,14 @@ abstract public class Workload implements Iterable<String>, Iterator<String> {
 
             linkComments.clear();
 
-            int numberComments = rg.nextInt(maxComments);
+            int numberComments = getExponentiallyDistributed(rg, avgPerLink) + 1;
             for (int j = 0; j < numberComments; j++) {
                 date += rg.nextInt(20000);
 
                 String author = users.get(rg.nextInt(users.size()));
 
-                Comment comment = new Comment(link.getId(), String.valueOf(i), author, date, "Comment " + i);
-                SortedNode<Comment> parent = null;
+                Comment comment = new Comment(link.getId(), String.valueOf(i), author, date, "Comment content");
+                SortedNode<Comment> parent = SortedNode.getRoot();
                 if (linkComments.size() != 0 && rg.nextBoolean()) {
                     parent = linkComments.get(rg.nextInt(linkComments.size()));
                 }
@@ -262,8 +273,9 @@ abstract public class Workload implements Iterable<String>, Iterator<String> {
                 SortedNode<Comment> node = new SortedNode<Comment>(parent, comment);
 
                 linkComments.add(node);
-
-                comments.add(node);
+                if (j < commentsToKeep) {
+                    comments.add(node);
+                }
 
                 i++;
             }
@@ -273,36 +285,32 @@ abstract public class Workload implements Iterable<String>, Iterator<String> {
     /**
      * Generates random link votes
      */
-    private static void generateLinkVotes(Random rg, int avgVotesPerLink, int downToUpRatio) {
-        System.out.println("Generating link votes...");
-
-        int maxVotes = (avgVotesPerLink * 2) + 1;
-
+    private static void generateLinkVotes(Random rg, int avgUpvotesPerLink, int avgDownvotesPerLink) {
+        System.out.println(";Generating link votes...");
+        
         for (Link link : links) {
-            generateVotes(rg, link, linkVotes, maxVotes, downToUpRatio);
+            generateVotes(rg, link, linkVotes, avgUpvotesPerLink, avgDownvotesPerLink);
         }
     }
 
     /**
      * Generates random comment votes
      */
-    private static void generateCommentVotes(Random rg, int avgVotesPerComment, int downToUpRatio) {
-        System.out.println("Generating comment votes...");
-
-        int maxVotes = (avgVotesPerComment * 2) + 1;
+    private static void generateCommentVotes(Random rg, int avgUpvotesPerComment, int avgDownvotesPerComment) {
+        System.out.println(";Generating comment votes...");
 
         for (SortedNode<Comment> comment : comments) {
-            generateVotes(rg, comment, commentVotes, maxVotes, downToUpRatio);
+            generateVotes(rg, comment, commentVotes, avgUpvotesPerComment, avgDownvotesPerComment);
         }
     }
 
-    private static <K> void generateVotes(Random rg, K element, List<Vote<K, String>> votes, int maxVotes,
-            int downToUpRatio) {
-        int numberVotes = rg.nextInt(maxVotes);
-        for (int i = 0; i < numberVotes; i++) {
+    private static <K> void generateVotes(Random rg, K element, List<Vote<K, String>> votes, int avgUpvotes,
+            int avgDownvotes) {
+        int upvotes = getExponentiallyDistributed(rg, avgUpvotes);
+        int downvotes = getExponentiallyDistributed(rg, avgDownvotes);
+        for (int i = 0; i < downvotes + upvotes; i++) {
             VoteDirection direction;
-            int perc = rg.nextInt(100);
-            if (perc <= downToUpRatio) {
+            if (i < downvotes) {
                 direction = VoteDirection.DOWN;
             } else {
                 direction = VoteDirection.UP;
@@ -415,7 +423,7 @@ abstract public class Workload implements Iterable<String>, Iterator<String> {
                 commentIndex = String.valueOf(rg.nextInt(comments.size()));
             }
             VoteDirection direction = (rg.nextBoolean()) ? VoteDirection.UP : VoteDirection.DOWN;
-            return String.format("vote_link;%s;%s;%d", commentIndex, direction.toString(), rg.nextInt(1024));
+            return String.format("vote_comment;%s;%s;%d", commentIndex, direction.toString(), rg.nextInt(1024));
         }
     }
 
@@ -456,11 +464,11 @@ abstract public class Workload implements Iterable<String>, Iterator<String> {
      * need to add up to 100.
      */
     private static Operation[] readOps = new Operation[] { new ReadLinks().freq(60), new ReadComments().freq(40) };
-    private static Operation[] writeOps = new Operation[] { new PostLink().freq(5), new PostComment().freq(15),
-            new VoteLink().freq(40), new VoteComment().freq(40) };
+    private static Operation[] writeOps = new Operation[] { new PostLink().freq(2), new PostComment().freq(10),
+            new VoteLink().freq(38), new VoteComment().freq(50) };
     
-    // There is a write every ten reads
-    int readToWriteRatio = 10;
+    // There is a write every readToWriteRatio reads
+    int readToWriteRatio = 5;
 
     private static AtomicInteger doMixedCounter = new AtomicInteger(7);
 
@@ -539,13 +547,14 @@ abstract public class Workload implements Iterable<String>, Iterator<String> {
                     }
                     // Make sure the client has read some links and comments
                     group.add(new ReadLinks().doLine(rg, user, true, date, subreddits, orders));
+                    group.add(new ReadLinks().doLine(rg, user, true, date, subreddits, orders));
+                    group.add(new ReadComments().doLine(rg, user, true, date, subreddits, orders));
                     group.add(new ReadComments().doLine(rg, user, true, date, subreddits, orders));
                 }
 
                 if (groupCounter < ops_groups) {
 
-                    // append biased operations, those targeting the user's
-                    // friends
+                    // append biased operations
                     for (int i = 0; i < ops_biased; i++) {
                         group.add(mixRead.get(rg.nextInt(mixRead.size())).doLine(rg, user, true, date, subreddits, orders));
                         biasedCounter++;
@@ -553,8 +562,7 @@ abstract public class Workload implements Iterable<String>, Iterator<String> {
                             group.add(mixWrite.get(rg.nextInt(mixWrite.size())).doLine(rg, user, true, date, subreddits, orders));
                         }
                     }
-
-                    // append read operations targeting any user in the system.
+                    
                     for (int i = 0; i < ops_random; i++)
                         group.add(mixRead.get(rg.nextInt(mixRead.size())).doLine(rg, user, false, date, subreddits, orders));
                         randomCounter++;
@@ -607,7 +615,7 @@ abstract public class Workload implements Iterable<String>, Iterator<String> {
 
     public static void main(String[] args) throws Exception {
         Random rg = new Random(17);
-        Workload.generateData(rg, 20, 3, 200, 10, 20, 70, 5, 70);
+        Workload.generateDataForDB(rg, new Random(13), 20, 3, 200, 10, 20, 70, 5, 70);
         Workload res = doMixed(0, true, 9, 2,
                 10, 2, System.currentTimeMillis());
         

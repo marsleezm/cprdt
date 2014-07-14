@@ -115,19 +115,11 @@ public class IndexedVoteableSetCPRDT<V extends Date<V>, U> extends
         this.elemsInstances = elemsInstances;
         this.voteCounters = voteCounters;
     }
-
-    /*
-     * private IndexedVoteableSetCPRDT(CRDTIdentifier id, final TxnHandle txn,
-     * final CausalityClock clock, Shard shard, Map<V, Set<TripleTimestamp>>
-     * elemsInstances, Map<V, VoteCounter<U>> voteCounters, SortedIndex<Double,
-     * V> confidenceIndex, SortedIndex<Integer, V> topIndex, SortedIndex<Double,
-     * V> hotnessIndex, SortedIndex<Double, V> controversyIndex,
-     * SortedIndex<Long, V> newestIndex) { super(id, txn, clock, shard);
-     * this.elemsInstances = elemsInstances; this.voteCounters = voteCounters;
-     * this.confidenceIndex = confidenceIndex; this.scoreIndex = topIndex;
-     * this.hotnessIndex = hotnessIndex; this.controversyIndex =
-     * controversyIndex; this.dateIndex = newestIndex; }
-     */
+    
+    @Override
+    public int estimatedSize() {
+        return elemsInstances.size();
+    }
 
     protected VoteCounter<U> getVoteCounter(V element) {
         VoteCounter<U> voteCounter = voteCounters.get(element);
@@ -262,11 +254,14 @@ public class IndexedVoteableSetCPRDT<V extends Date<V>, U> extends
         HashMap<V, Set<TripleTimestamp>> elemsInstancesSubset = new HashMap<V, Set<TripleTimestamp>>();
 
         final HashMap<V, VoteCounter<U>> newCounters = new HashMap<V, VoteCounter<U>>();
-
+        
+        int seen = 0;
+        
         for (V element : (Set<V>) elements) {
             Set<TripleTimestamp> value = elemsInstances.get(element);
             if (value != null) {
                 elemsInstancesSubset.put(element, value);
+                seen++;
             }
             VoteCounter<U> voteCounter = voteCounters.get(element);
             if (voteCounter != null) {
@@ -276,8 +271,16 @@ public class IndexedVoteableSetCPRDT<V extends Date<V>, U> extends
 
         final HashMap<V, Set<TripleTimestamp>> newInstances = new HashMap<V, Set<TripleTimestamp>>();
         AddWinsUtils.deepCopy(elemsInstancesSubset, newInstances);
+        
+        Shard fractionShard;
+        if (seen >= elemsInstances.size()) {
+            // The fraction is actually a full copy
+            fractionShard = Shard.full;
+        } else {
+            fractionShard = new Shard(elements);
+        }
 
-        return new IndexedVoteableSetCPRDT<V, U>(id, txn, clock, new Shard(elements), newInstances, newCounters);
+        return new IndexedVoteableSetCPRDT<V, U>(id, txn, clock, fractionShard, newInstances, newCounters);
     }
 
     public IndexedVoteableSetCPRDT<V, U> copy() {

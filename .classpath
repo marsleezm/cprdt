@@ -30,5 +30,6 @@
 	<classpathentry kind="lib" path="lib/core/objenesis-1.2.jar"/>
 	<classpathentry kind="lib" path="lib/core/minlog-1.2.jar"/>
 	<classpathentry kind="lib" path="lib/core/reflectasm-1.09-shaded.jar"/>
+	<classpathentry kind="lib" path="/home/data/Documents/Cours/2013-2014/Mémoire/SwiftCloud/workbench/swiftcloud/lib/extras/classmexer.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

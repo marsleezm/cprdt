@@ -44,8 +44,6 @@ public class VoteableTreeCPRDT<V extends Date<V>, U> extends BaseCRDT<VoteableTr
     private Set<SortedNode<V>> tombstones;
     // The root node (parent is null)
     private SortedNode<V> root;
-    // To search nodes by their value
-    private Map<V, Set<SortedNode<V>>> nodesByValue;
 
     // Votes
     protected Map<SortedNode<V>, VoteCounter<U>> voteCounters;
@@ -155,7 +153,6 @@ public class VoteableTreeCPRDT<V extends Date<V>, U> extends BaseCRDT<VoteableTr
         this.tombstones = new HashSet<SortedNode<V>>();
         this.voteCounters = new HashMap<SortedNode<V>, VoteCounter<U>>();
         this.children = new HashMap<SortedNode<V>, Set<SortedNode<V>>>();
-        this.nodesByValue = new HashMap<V, Set<SortedNode<V>>>();
     }
 
     private VoteableTreeCPRDT(CRDTIdentifier id, TxnHandle txn, CausalityClock clock, Shard shard,
@@ -166,11 +163,14 @@ public class VoteableTreeCPRDT<V extends Date<V>, U> extends BaseCRDT<VoteableTr
         this.tombstones = new HashSet<SortedNode<V>>(tombstones);
         this.voteCounters = voteCounters;
         this.children = new HashMap<SortedNode<V>, Set<SortedNode<V>>>();
-        this.nodesByValue = new HashMap<V, Set<SortedNode<V>>>();
         for (SortedNode<V> node : nodes) {
             addToChildren(node);
-            addToNodesWithValue(node);
         }
+    }
+    
+    @Override
+    public int estimatedSize() {
+        return nodes.size();
     }
 
     public void add(SortedNode<V> newNode) throws VersionNotFoundException, NetworkException {
@@ -192,7 +192,6 @@ public class VoteableTreeCPRDT<V extends Date<V>, U> extends BaseCRDT<VoteableTr
         }
         
         nodes.add(newNode);
-        addToNodesWithValue(newNode);
         addToChildren(newNode);
         registerLocalOperation(new VoteableTreeAddUpdate<V, U>(newNode));
     }
@@ -205,7 +204,6 @@ public class VoteableTreeCPRDT<V extends Date<V>, U> extends BaseCRDT<VoteableTr
 
     public void applyAdd(SortedNode<V> node) {
         nodes.add(node);
-        addToNodesWithValue(node);
         addToChildren(node);
     }
 
@@ -216,15 +214,6 @@ public class VoteableTreeCPRDT<V extends Date<V>, U> extends BaseCRDT<VoteableTr
             children.put(node.getParent(), childrenOfParent);
         }
         childrenOfParent.add(node);
-    }
-
-    private void addToNodesWithValue(SortedNode<V> node) {
-        Set<SortedNode<V>> nodes = nodesByValue.get(node.getValue());
-        if (nodes == null) {
-            nodes = new HashSet<SortedNode<V>>();
-            nodesByValue.put(node.getValue(), nodes);
-        }
-        nodes.add(node);
     }
 
     /**
@@ -359,10 +348,6 @@ public class VoteableTreeCPRDT<V extends Date<V>, U> extends BaseCRDT<VoteableTr
         return decoratedChildren;
     }
 
-    public Set<SortedNode<V>> getNodesByValue(V value) {
-        return Collections.unmodifiableSet(nodesByValue.get(value));
-    }
-
     @Override
     public void vote(SortedNode<V> node, U voter, VoteDirection direction) throws VersionNotFoundException,
             NetworkException {
@@ -420,10 +405,13 @@ public class VoteableTreeCPRDT<V extends Date<V>, U> extends BaseCRDT<VoteableTr
         HashSet<SortedNode<V>> tombstonesSubset = new HashSet<SortedNode<V>>();
 
         final HashMap<SortedNode<V>, VoteCounter<U>> newCounters = new HashMap<SortedNode<V>, VoteCounter<U>>();
-
+        
+        int seen = 0;
+        
         for (SortedNode<V> node : (Set<SortedNode<V>>) fraction) {
             if (nodes.contains(node)) {
                 nodesSubset.add(node);
+                seen++;
             }
             if (tombstones.contains(node)) {
                 tombstonesSubset.add(node);
@@ -433,8 +421,16 @@ public class VoteableTreeCPRDT<V extends Date<V>, U> extends BaseCRDT<VoteableTr
                 newCounters.put(node, voteCounter.copy());
             }
         }
+        
+        Shard fractionShard;
+        if (seen >= nodes.size()) {
+            // The fraction is actually a full copy
+            fractionShard = Shard.full;
+        } else {
+            fractionShard = new Shard(fraction);
+        }
 
-        return new VoteableTreeCPRDT<V, U>(id, txn, clock, new Shard(fraction), nodesSubset, tombstonesSubset, newCounters);
+        return new VoteableTreeCPRDT<V, U>(id, txn, clock, fractionShard, nodesSubset, tombstonesSubset, newCounters);
     }
 
     public List<SortedNode<V>> applySortedSubtree(SortedNode<V> node, int context, SortingOrder sort, int limit) {
@@ -488,7 +484,6 @@ public class VoteableTreeCPRDT<V extends Date<V>, U> extends BaseCRDT<VoteableTr
                     voteCounters.put(node, voteCounter);
                 }
                 addToChildren(node);
-                addToNodesWithValue(node);
                 updateIndexes(node);
             }
         }

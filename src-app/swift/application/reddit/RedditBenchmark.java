@@ -21,11 +21,14 @@ import static sys.Sys.Sys;
 
 import java.io.PrintStream;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Properties;
-import java.util.Random;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import swift.client.SwiftImpl;
@@ -46,11 +49,7 @@ import sys.utils.Props;
 import sys.utils.Threading;
 
 /**
- * Benchmark of SwiftSocial, based on data model derived from WaltSocial
- * prototype [Sovran et al. SOSP 2011].
- * <p>
- * Runs in parallel SwiftSocial sessions from the provided file. Sessions can be
- * distributed among different instances by specifying sessions range.
+ * Benchmark of SwiftLinks
  */
 public class RedditBenchmark extends RedditApp {
 
@@ -64,7 +63,7 @@ public class RedditBenchmark extends RedditApp {
 
         System.err.println("Populating db with users...");
 
-        generateInitialDataFromConfig(properties);
+        generateInitialDataFromConfig(properties, true);
 
         Workload.DataInit toInitData[] = { Workload.getUsers(), Workload.getSubreddits(), Workload.getLinks(),
                 Workload.getLinkVotes(), Workload.getComments(), Workload.getCommentVotes() };
@@ -99,16 +98,18 @@ public class RedditBenchmark extends RedditApp {
 
             k++;
 
-            System.out.println(k + "/" + toInitData.length);
+            //System.out.println(k + "/" + toInitData.length);
         }
         Threading.sleep(5000);
-        System.out.println("\nFinished populating db with users.");
+        System.err.println("\nFinished populating db with data.");
     }
 
     public void doBenchmark(String[] args) {
         // IO.redirect("stdout.txt", "stderr.txt");
 
         System.err.println(IP.localHostname() + "/ starting...");
+        
+        final boolean lazy = Args.contains(args, "-lazy");
 
         int concurrentSessions = Args.valueOf(args, "-threads", 1);
         String partitions = Args.valueOf(args, "-partition", "0/1");
@@ -128,9 +129,7 @@ public class RedditBenchmark extends RedditApp {
 
         bufferedOutput = new PrintStream(System.out, false);
 
-        super.populateWorkloadFromConfig();
-
-        System.err.println(Workload.getSubreddits().getData());
+        super.populateWorkloadFromConfig(false);
 
         bufferedOutput.printf(";\n;\targs=%s\n", Arrays.asList(args));
         bufferedOutput.printf(";\tsite=%s\n", site);
@@ -140,8 +139,25 @@ public class RedditBenchmark extends RedditApp {
         bufferedOutput.printf(";\tSurrogate=%s\n", server);
         bufferedOutput.printf(";\tShepard=%s\n", shepard);
 
-        if (!shepard.isEmpty())
-            Shepard.sheepJoinHerd(shepard);
+        final Collection<AtomicBoolean> runningClients = new ConcurrentLinkedQueue<AtomicBoolean>();
+        final Semaphore scoutResources = new Semaphore(0);
+
+        if (!shepard.isEmpty()) {
+            Shepard.sheepJoinHerd(shepard, new Runnable() {
+                public void run() {
+                    System.err.println("Stopping scouts");
+                    for (AtomicBoolean running: runningClients) {
+                        running.set(false);
+                    }
+                    try {
+                        scoutResources.acquire(runningClients.size());
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                    System.err.println("Scouts stopped");
+                }
+            });
+        }
 
         // Kick off all sessions, throughput is limited by
         // concurrentSessions.
@@ -150,13 +166,16 @@ public class RedditBenchmark extends RedditApp {
         System.err.println("Spawning session threads.");
         for (int i = 0; i < concurrentSessions; i++) {
             final int sessionId = site * concurrentSessions + i;
-            final Workload commands = getWorkloadFromConfig(sessionId, numberOfVirtualSites, (i % userFraction) == 0);
+            final Workload commands = getWorkloadFromConfig(sessionId, numberOfVirtualSites, true);
             threadPool.execute(new Runnable() {
                 public void run() {
                     // Randomize startup to avoid clients running all at the
                     // same time; causes problems akin to DDOS symptoms.
                     Threading.sleep(Sys.rg.nextInt(1000));
-                    RedditBenchmark.super.runClientSession(Integer.toString(sessionId), commands, false);
+                    AtomicBoolean running = new AtomicBoolean(true);
+                    runningClients.add(running);
+                    runClientSession(Integer.toString(sessionId), commands, false, running, lazy);
+                    scoutResources.release();
                 }
             });
         }
@@ -176,27 +195,20 @@ public class RedditBenchmark extends RedditApp {
         System.exit(0);
     }
 
-    public void test() {
-        SwiftSession clientServer = SwiftImpl.newSingleSessionInstance(new SwiftOptions("localhost",
-                DCConstants.SURROGATE_PORT));
-        RedditPartialReplicas client = new RedditPartialReplicas(clientServer, IsolationLevel.SNAPSHOT_ISOLATION,
-                CachePolicy.CACHED, clientServer.getSessionId(), true);
-        System.out.println(client.links(Workload.getSubreddits().getData().get(0), SortingOrder.HOT, null, null, 100));
-    }
-
     public static void main(String[] args) {
         sys.Sys.init();
-
         RedditBenchmark instance = new RedditBenchmark();
-        if (args.length == 0) {
+
+        if (args.length == 0 || args[0].equals("test")) {
 
             DCSequencerServer.main(new String[] { "-name", "X0" });
             DCServer.main(new String[] { "-servers", "localhost" });
-
-            args = new String[] { "-servers", "localhost", "-threads", "10" };
+            if (args.length == 0) {
+                args = new String[] { "-servers", "localhost", "-threads", "10", "-lazy" };
+            }
 
             instance.initDB(args);
-            //instance.test();
+            // instance.test();
             instance.doBenchmark(args);
             exit(0);
         }

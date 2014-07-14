@@ -85,6 +85,7 @@ class SwiftBase {
                     }
                 }
             }
+            println "\nShepard terminated\n"
         }
         println "\nOK"
         return queue

@@ -472,14 +472,6 @@ public class RedditPartialReplicas implements RedditAPI {
         return false;
     }
 
-    private SortedNode<Comment> getCommentNode(VoteableTreeCPRDT<Comment, String> commentTree, Comment comment) {
-        SortedNode<Comment> commentNode = null;
-        for (SortedNode<Comment> n : commentTree.getNodesByValue(comment)) {
-            commentNode = n;
-        }
-        return commentNode;
-    }
-
     public SortedNode<Comment> comment(String linkId, SortedNode<Comment> parentComment, long date, String text) {
         if (currentUser == null) {
             logger.warning("User must be logged in to submit a comment");
@@ -683,9 +675,11 @@ public class RedditPartialReplicas implements RedditAPI {
             // TODO transform into tree (or do it directly in the CRDT)
 
             commitTxn(txn);
-
-            lastCommentsLinkId = linkId;
-            lastComments = comments;
+            
+            if (!comments.isEmpty()) {
+                lastCommentsLinkId = linkId;
+                lastComments = comments;
+            }
 
             if (!comments.isEmpty()) {
                 commentList = comments;

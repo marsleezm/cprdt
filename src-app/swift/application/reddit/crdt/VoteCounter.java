@@ -15,40 +15,37 @@ import swift.crdt.core.Copyable;
  * @param <V> type of a voter
  */
 public class VoteCounter<V> implements Copyable {
-    private Map<V,VoteDirection> votes;
-    private Map<V,Long> voteTimestamps;
+    private Map<V,VoteEntry> votes;
     // For caching purposes, can be computed from votes
     private int upvotes;
     private int downvotes;
+    
+    private static class VoteEntry {
+        VoteDirection direction;
+        long timestamp;
+        
+        VoteEntry(VoteDirection direction, long timestamp) {
+            this.direction = direction;
+            this.timestamp = timestamp;
+        }
 
-    public VoteCounter() {
-        votes = new HashMap<V,VoteDirection>();
-        voteTimestamps = new HashMap<V,Long>();
+        public VoteCounter.VoteEntry copy() {
+            return new VoteEntry(direction, timestamp);
+        }
     }
 
-    private VoteCounter(Map<V,VoteDirection> votes, Map<V,Long> voteTimestamps, int upvotes, int downvotes) {
+    public VoteCounter() {
+        votes = new HashMap<V,VoteEntry>();
+    }
+
+    private VoteCounter(Map<V,VoteEntry> votes, int upvotes, int downvotes) {
         this.votes = votes;
-        this.voteTimestamps = voteTimestamps;
         this.upvotes = upvotes;
         this.downvotes = downvotes;
     }
     
-    private long getTimestamp(V voter) {
-        long timestamp = 0;
-        if (voteTimestamps.containsKey(voter)) {
-            timestamp = voteTimestamps.get(voter);
-        }
-        
-        return timestamp;
-    }
-    
-    private void setTimestamp(V voter, long timestamp) {
-        voteTimestamps.put(voter, timestamp);
-    }
-    
     // To keep the upvotes and downvotes variables consistent with the actual votes
-    private void updateScore(V voter, VoteDirection newDirection) {
-        VoteDirection oldDirection = getVoteOf(voter);
+    private void updateScore(VoteDirection oldDirection, VoteDirection newDirection) {
         if (oldDirection != newDirection) {
             switch (newDirection) {
                 case UP:
@@ -72,38 +69,47 @@ public class VoteCounter<V> implements Copyable {
             }
         }
     }
+    
+    protected VoteEntry getEntry(V voter) {
+        VoteEntry entry = votes.get(voter);
+        if (entry == null) {
+            entry = new VoteEntry(VoteDirection.MIDDLE, 0);
+            votes.put(voter, entry);
+        }
+        return entry;
+    }
 
     public VoteCounterVoteUpdate<V> vote(V voter, VoteDirection direction) {
-        long voterTimestamp = getTimestamp(voter);
-        voterTimestamp++;
-        setTimestamp(voter, voterTimestamp);
+        VoteEntry entry = getEntry(voter);
         
-        updateScore(voter, direction);
-        votes.put(voter, direction);
+        updateScore(entry.direction, direction);
         
-        return new VoteCounterVoteUpdate<V>(voter, direction, voterTimestamp);
+        entry.timestamp++;
+        entry.direction = direction;
+        
+        return new VoteCounterVoteUpdate<V>(voter, direction, entry.timestamp);
     }
 
     public void applyVote(V voter, VoteDirection direction, long newTimestamp) {
-        long oldTimestamp = getTimestamp(voter);
-        if (oldTimestamp > newTimestamp) {
+        VoteEntry entry = getEntry(voter);
+        if (entry.timestamp > newTimestamp) {
             // Update is older than current state
             return;
         }
         
-        if (oldTimestamp == newTimestamp) {
-            VoteDirection oldDirection = votes.get(voter);
+        if (entry.timestamp == newTimestamp) {
             // Higher vote wins
-            if (oldDirection.direction >= direction.direction) {
+            if (entry.direction.direction >= direction.direction) {
                 // No need to update direction
                 return;
             }
         }
         
-        updateScore(voter, direction);
-        votes.put(voter, direction);
+        updateScore(entry.direction, direction);
         
-        setTimestamp(voter, newTimestamp);
+        entry.direction = direction;
+        
+        entry.timestamp = newTimestamp;
     }
     
     public int getScore() {
@@ -119,20 +125,28 @@ public class VoteCounter<V> implements Copyable {
     }
 
     public VoteDirection getVoteOf(V voter) {
-        VoteDirection direction = votes.get(voter);
-        if (direction == null) {
-            direction = VoteDirection.MIDDLE;
+        VoteEntry entry = votes.get(voter);
+        if (entry == null) {
+            return VoteDirection.MIDDLE;
         }
-        return direction;
+        return entry.direction;
     }
     
     public Map<V,VoteDirection> getValue() {
-        return Collections.unmodifiableMap(votes);
+        Map<V, VoteDirection> value = new HashMap<V, VoteDirection>();
+        for (Map.Entry<V, VoteEntry> entry: votes.entrySet()) {
+            value.put(entry.getKey(), entry.getValue().direction);
+        }
+        return Collections.unmodifiableMap(value);
     }
     
     @Override
     public VoteCounter<V> copy() {
-        return new VoteCounter<V>(new HashMap<V,VoteDirection>(votes), new HashMap<V,Long>(voteTimestamps), upvotes, downvotes);
+        Map<V, VoteEntry> copy = new HashMap<V, VoteEntry>();
+        for (Map.Entry<V, VoteEntry> entry: votes.entrySet()) {
+            copy.put(entry.getKey(), entry.getValue().copy());
+        }
+        return new VoteCounter<V>(copy, upvotes, downvotes);
     }
 
 }
