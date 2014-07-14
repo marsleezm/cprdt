@@ -56,13 +56,13 @@ public class MetadataStatsCollectorImpl implements MetadataStatsCollector {
 
     @Override
     public void recordStats(Object message, int totalSize, int objectOrUpdateSize, int objectOrUpdateValueSize,
-            int batchSize, int maxExceptionsNum) {
+            int batchSize, int maxExceptionsNum, String objectId) {
         // TODO: we should intercept totalSize at the serialization time rather
         // than forcing re-serialization for measurements purposes
         if (isEnabled()) {
-            stream.printf("%s,%s,METADATA_%s,%d,%d,%d,%d,%d\n", scoutId, System.currentTimeMillis(), message.getClass()
+            stream.printf("%s,%s,METADATA_%s,%d,%d,%d,%d,%d,%s\n", scoutId, System.currentTimeMillis(), message.getClass()
                     .getSimpleName(), totalSize, objectOrUpdateSize, objectOrUpdateValueSize, maxExceptionsNum,
-                    batchSize);
+                    batchSize, objectId);
         }
     }
 }

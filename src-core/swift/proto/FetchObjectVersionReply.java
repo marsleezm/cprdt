@@ -145,6 +145,8 @@ public class FetchObjectVersionReply implements RpcMessage, MetadataSamplable {
 
         int versionSize = 0;
         int valueSize = 0;
+        int numberOfUpdates = -1;
+        String objectId = "";
         if (crdt != null) {
             maxExceptionsNum = Math.max(crdt.getClock().getExceptionsNumber(), maxExceptionsNum);
 
@@ -166,8 +168,10 @@ public class FetchObjectVersionReply implements RpcMessage, MetadataSamplable {
                 kryo.writeObject(buffer, false);
             }
             valueSize = buffer.position();
+            numberOfUpdates = crdt.getNumberOfUpdates();
+            objectId = crdt.getUID().toString();
         }
 
-        collector.recordStats(this, totalSize, versionSize, valueSize, 1, maxExceptionsNum);
+        collector.recordStats(this, totalSize, versionSize, valueSize, numberOfUpdates, maxExceptionsNum, objectId);
     }
 }

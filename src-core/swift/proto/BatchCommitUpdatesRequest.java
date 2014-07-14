@@ -123,7 +123,7 @@ public class BatchCommitUpdatesRequest extends ClientRequest implements Metadata
             }
         }
         final int valuesSize = buffer.position();
-        collector.recordStats(this, totalSize, updatesSize, valuesSize, numberOfOps, maxExceptionsNum);
+        collector.recordStats(this, totalSize, updatesSize, valuesSize, numberOfOps, maxExceptionsNum, "");
     }
 
     @Override

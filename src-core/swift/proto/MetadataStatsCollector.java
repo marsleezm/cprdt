@@ -39,5 +39,5 @@ public interface MetadataStatsCollector {
      *            maximum number of exceptions in a vector in the message
      */
     public abstract void recordStats(Object message, int totalSize, int objectOrUpdateSize,
-            int objectOrUpdateValueSize, int batchSize, int maxExceptionsNum);
+            int objectOrUpdateValueSize, int batchSize, int maxExceptionsNum, String objectId);
 }

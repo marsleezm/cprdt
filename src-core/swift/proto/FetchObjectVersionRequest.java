@@ -165,6 +165,6 @@ public class FetchObjectVersionRequest extends ClientRequest implements Metadata
 
         // TODO: capture from the wire, rather than recompute here
         kryo.writeObject(buffer, this);
-        collector.recordStats(this, buffer.position(), 0, 0, 1, version.getExceptionsNumber());
+        collector.recordStats(this, buffer.position(), 0, 0, 1, version.getExceptionsNumber(), this.uid.toString());
     }
 }
