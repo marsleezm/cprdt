@@ -50,6 +50,10 @@ public class Shepard extends ShepardProtoHandler {
     private static final int PORT = 29876;
 
     public static void sheepJoinHerd(String shepardAddress) {
+        sheepJoinHerd(shepardAddress, null);
+    }
+    
+    public static void sheepJoinHerd(String shepardAddress, final Runnable onTimeout) {
         Endpoint shepard = Networking.resolve(shepardAddress, PORT);
         RpcEndpoint endpoint = Networking.rpcConnect(TransportProvider.DEFAULT).toDefaultService();
         System.err.println("Contacting shepard at: " + shepardAddress);
@@ -69,6 +73,9 @@ public class Shepard extends ShepardProtoHandler {
                 new Task(permission.duration()) {
                     public void run() {
                         Log.info(IP.localHostAddressString() + " Meh...I'm done...");
+                        if (onTimeout != null) {
+                            onTimeout.run();
+                        }
                         System.exit(0);
                     }
                 };
