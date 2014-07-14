@@ -113,6 +113,6 @@ public class UpdateNotification implements Notifyable<CRDTIdentifier>, MetadataS
             }
         }
         final int valuesSize = buffer.position();
-        collector.recordStats(this, totalSize, updatesSize, valuesSize, numberOfOps, maxExceptionsNum);
+        collector.recordStats(this, totalSize, updatesSize, valuesSize, numberOfOps, maxExceptionsNum, "");
     }
 }

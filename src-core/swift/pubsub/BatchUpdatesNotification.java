@@ -143,7 +143,7 @@ public class BatchUpdatesNotification implements Notifyable<CRDTIdentifier>, Met
         final int valuesSize = buffer.position();
 
         final int maxExceptionsNum = newVersion.getExceptionsNumber();
-        collector.recordStats(this, totalSize, updatesSize, valuesSize, numberOfOps, maxExceptionsNum);
+        collector.recordStats(this, totalSize, updatesSize, valuesSize, numberOfOps, maxExceptionsNum, "");
     }
 
     @Override
