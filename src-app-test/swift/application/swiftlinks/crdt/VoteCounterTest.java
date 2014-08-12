@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *****************************************************************************/
-package swift.application.reddit.crdt;
+package swift.application.swiftlinks.crdt;
 
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertEquals;
@@ -22,12 +22,18 @@ import static org.junit.Assert.assertEquals;
 import org.junit.Before;
 import org.junit.Test;
 
+import swift.application.swiftlinks.crdt.VoteCounterCRDT;
+import swift.application.swiftlinks.crdt.VoteDirection;
 import swift.crdt.TxnTester;
-
 import swift.crdt.core.CRDTIdentifier;
 import swift.crdt.core.TxnHandle;
 import swift.exceptions.SwiftException;
 
+/**
+ * 
+ * @author Iwan Briquemont
+ *
+ */
 public class VoteCounterTest {
     TxnHandle txn;
     VoteCounterCRDT<String> voteCounter;

@@ -1,22 +1,5 @@
-/*****************************************************************************
- * Copyright 2011-2012 INRIA
- * Copyright 2011-2012 Universidade Nova de Lisboa
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *****************************************************************************/
-package swift.application.reddit.cprdt;
+package swift.application.swiftlinks.cprdt;
 
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertEquals;
 
@@ -28,19 +11,24 @@ import java.util.Set;
 import org.junit.Before;
 import org.junit.Test;
 
-import swift.application.reddit.Link;
-import swift.application.reddit.SortingOrder;
-import swift.application.reddit.cprdt.IndexedVoteableSetCPRDT;
-import swift.application.reddit.crdt.VoteDirection;
+import swift.application.swiftlinks.Link;
+import swift.application.swiftlinks.SortingOrder;
+import swift.application.swiftlinks.cprdt.IndexedVoteableSetCPRDT;
+import swift.application.swiftlinks.crdt.VoteDirection;
 import swift.cprdt.core.Shard;
 import swift.crdt.TxnTester;
 import swift.crdt.core.CRDTIdentifier;
 import swift.crdt.core.TxnHandle;
 import swift.exceptions.NetworkException;
-import swift.exceptions.NoSuchObjectException;
 import swift.exceptions.SwiftException;
 import swift.exceptions.VersionNotFoundException;
 
+/**
+ * Test of IndexedVoteableSetCPRDT
+ * 
+ * @author Iwan Briquemont
+ *
+ */
 public class VoteableSetTest {
     TxnHandle txn;
     IndexedVoteableSetCPRDT<Link,String> set;

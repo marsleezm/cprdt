@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *****************************************************************************/
-package swift.application.reddit.cprdt;
+package swift.application.swiftlinks.cprdt;
 
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertEquals;
@@ -28,13 +28,15 @@ import java.util.Set;
 import org.junit.Before;
 import org.junit.Test;
 
-import swift.application.reddit.Date;
-import swift.application.reddit.Link;
-import swift.application.reddit.SortingOrder;
-import swift.application.reddit.cprdt.IndexedVoteableSetCPRDT;
-import swift.application.reddit.crdt.DecoratedNode;
-import swift.application.reddit.crdt.Node;
-import swift.application.reddit.crdt.VoteDirection;
+import swift.application.swiftlinks.Dateable;
+import swift.application.swiftlinks.Link;
+import swift.application.swiftlinks.SortingOrder;
+import swift.application.swiftlinks.cprdt.IndexedVoteableSetCPRDT;
+import swift.application.swiftlinks.cprdt.SortedNode;
+import swift.application.swiftlinks.cprdt.VoteableTreeCPRDT;
+import swift.application.swiftlinks.crdt.DecoratedNode;
+import swift.application.swiftlinks.crdt.Node;
+import swift.application.swiftlinks.crdt.VoteDirection;
 import swift.crdt.TxnTester;
 import swift.crdt.core.CRDTIdentifier;
 import swift.crdt.core.TxnHandle;
@@ -43,8 +45,17 @@ import swift.exceptions.NoSuchObjectException;
 import swift.exceptions.SwiftException;
 import swift.exceptions.VersionNotFoundException;
 
+/**
+ * Test of VoteableTreeCPRDT
+ * 
+ * @author Iwan Briquemont
+ *
+ */
 public class VoteableTreeTest {
-    class Comment implements Date<Comment> {
+    /**
+     * Fake Comment, with only a date
+     */
+    class Comment implements Dateable<Comment> {
         long date;
         
         public Comment(long date) {

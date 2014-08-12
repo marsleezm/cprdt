@@ -14,14 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *****************************************************************************/
-package swift.application.reddit.crdt;
+package swift.application.swiftlinks.crdt;
 
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertEquals;
 
 import org.junit.Before;
 import org.junit.Test;
 
+import swift.application.swiftlinks.crdt.VoteCounterCRDT;
+import swift.application.swiftlinks.crdt.VoteDirection;
 import swift.clocks.ClockFactory;
 import swift.crdt.SwiftTester;
 import swift.crdt.TxnTester;
@@ -31,6 +32,12 @@ import swift.exceptions.NoSuchObjectException;
 import swift.exceptions.VersionNotFoundException;
 import swift.exceptions.WrongTypeException;
 
+
+/**
+ * 
+ * @author Iwan Briquemont
+ *
+ */
 public class VoteCounterConcurrencyTest {
     SwiftTester swift1, swift2;
     ManagedCRDT<VoteCounterCRDT<String>> v1, v2;
