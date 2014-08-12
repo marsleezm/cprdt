@@ -22,7 +22,7 @@ import sys.net.api.rpc.RpcMessage;
 
 public class Request implements RpcMessage {
 
-    String payload;
+    private String payload;
 
     Request() {
     }
@@ -34,5 +34,9 @@ public class Request implements RpcMessage {
     @Override
     public void deliverTo(RpcHandle handle, RpcHandler handler) {
         ((RequestHandler) handler).onReceive(handle, this);
+    }
+
+    public String getPayload() {
+        return payload;
     }
 }

@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *****************************************************************************/
-package swift.application.social.cs;
+package swift.application.swiftlinks.cs;
 
 import static sys.net.api.Networking.Networking;
 
@@ -22,9 +22,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-import swift.application.social.SwiftSocialApp;
-import swift.application.social.SwiftSocialBenchmark;
-import swift.application.social.SwiftSocialOps;
+import swift.application.social.cs.Reply;
+import swift.application.social.cs.Request;
+import swift.application.social.cs.RequestHandler;
+import swift.application.swiftlinks.SwiftLinksApp;
+import swift.application.swiftlinks.SwiftLinksBenchmark;
+import swift.application.swiftlinks.SwiftLinks;
 import sys.ec2.ClosestDomain;
 import sys.net.api.Networking.TransportProvider;
 import sys.net.api.rpc.RpcHandle;
@@ -32,13 +35,10 @@ import sys.utils.Args;
 import sys.utils.IP;
 
 /**
- * Benchmark of SwiftSocial, based on data model derived from WaltSocial
- * prototype [Sovran et al. SOSP 2011].
- * <p>
- * Runs in parallel SwiftSocial sessions from the provided file. Sessions can be
- * distributed among different instances by specifying sessions range.
+ * Receives operations via RPC
+ * to run them at the server side
  */
-public class SwiftSocialBenchmarkServer extends SwiftSocialBenchmark {
+public class SwiftLinksBenchmarkServer extends SwiftLinksBenchmark {
     public static int SCOUT_PORT = 26667;
 
     public static void main(String[] args) {
@@ -53,15 +53,11 @@ public class SwiftSocialBenchmarkServer extends SwiftSocialBenchmark {
 
         System.err.println(IP.localHostAddress() + " connecting to: " + server);
 
-        final SwiftSocialApp app = new SwiftSocialApp();
+        final SwiftLinksApp app = new SwiftLinksApp();
         app.init(new String[] { "-servers", server });
 
-        app.populateWorkloadFromConfig(); // Populate properties...
-
-        // // Override SwiftSocial.props cache size with cmd line option...
-        // int cache = Args.valueOf(args, "-cache", -1);
-        // if (cache > 0)
-        // SwiftSocialMain.cacheSize = cache;
+        app.populateWorkloadFromConfig(false); // Populate properties...
+        app.getProps().setProperty("swift.computeMetadataStatistics", "false");
 
         int instance = Args.valueOf(args, "-instance", 0);
         Networking.rpcBind(SCOUT_PORT + instance, TransportProvider.DEFAULT).toService(0, new RequestHandler() {
@@ -70,9 +66,9 @@ public class SwiftSocialBenchmarkServer extends SwiftSocialBenchmark {
             public void onReceive(final RpcHandle handle, final Request m) {
                 String cmdLine = m.getPayload();
                 String sessionId = handle.remoteEndpoint().toString();
-                SwiftSocialOps socialClient = getSession(sessionId, app);
+                SwiftLinks client = getSession(sessionId, app);
                 try {
-                    app.runCommandLine(socialClient, cmdLine);
+                    app.runCommandLine(client, cmdLine);
                     handle.reply(new Reply("OK"));
                 } catch (Exception x) {
                     handle.reply(new Request("ERROR"));
@@ -84,13 +80,15 @@ public class SwiftSocialBenchmarkServer extends SwiftSocialBenchmark {
         System.err.println("SwiftSocial Server Ready...");
     }
 
-    static SwiftSocialOps getSession(String sessionId, SwiftSocialApp app) {
-        SwiftSocialOps res = sessions.get(sessionId);
-        if (res == null)
-            sessions.put(sessionId, res = app.getSwiftSocial(sessionId));
+    static SwiftLinks getSession(String sessionId, SwiftLinksApp app) {
+        SwiftLinks res = sessions.get(sessionId);
+        if (res == null) {
+            res = app.getReddit(sessionId, true);
+            sessions.put(sessionId, res);
+        }
 
         return res;
     }
 
-    static Map<String, SwiftSocialOps> sessions = new ConcurrentHashMap<String, SwiftSocialOps>();
+    static Map<String, SwiftLinks> sessions = new ConcurrentHashMap<String, SwiftLinks>();
 }
