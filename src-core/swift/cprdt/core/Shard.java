@@ -32,6 +32,8 @@ public class Shard {
 
     // TODO add properties support, maybe multiple intervals with different
     // comparators
+    
+    // Interval of particles
     private IntervalSet interval;
 
     public static final Shard full = new Shard(true);
