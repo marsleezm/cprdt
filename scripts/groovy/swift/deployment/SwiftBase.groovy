@@ -8,11 +8,11 @@ class SwiftBase {
     static String SHEPARD_CMD = "-cp swiftcloud.jar -Djava.util.logging.config.file=logging.properties sys.herd.Shepard"
 
     static String swift_app_cmd( String heap, String exec, String stderr, String stdout ) {
-        return "java " + heap + " " + exec + "2> >(tee " + stderr + " 1>&2) > >(tee " + stdout + ")"
+        return "java " + heap + " " + exec + " 2> >(tee " + stderr + " 1>&2) > >(tee " + stdout + ")"
     }
 
     static String swift_app_cmd_nostdout( String heap, String exec, String stderr, String stdout )  {
-        return "java " + heap + " " + exec +  "2> >(tee " + stderr+ " 1>&2) > " + stdout
+        return "java " + heap + " " + exec +  " 2> >(tee " + stderr+ " 1>&2) > " + stdout
     }
 
     static String sequencerCmd( String siteId, String shepard, List servers, List otherSequencers, String extraArgs) {
@@ -46,7 +46,7 @@ class SwiftBase {
         println "==== STARTING DATACENTER SURROGATES ===="
 
         surrogates.each { host ->
-            rshC(host, swift_app_cmd_nostdout( "-Xms"+heap, surrogateCmd( sequencer ), "sur-stderr.txt", "sur-stdout.txt" ))
+            rshC(host, swift_app_cmd( "-Xms"+heap, surrogateCmd( sequencer ), "sur-stderr.txt", "sur-stdout.txt" ))
         }
         println "\nOK"
     }

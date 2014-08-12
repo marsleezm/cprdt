@@ -2,26 +2,28 @@ swift.asyncCommit=true
 swift.notifications=true
 swift.cachePolicy=CACHED
 swift.isolationLevel=SNAPSHOT_ISOLATION
-swift.cacheEvictionTimeMillis=600000
+swift.cacheEvictionTimeMillis=3600000
 swift.disasterSafe=true
 swift.batchSize=10
 swift.asyncQueue=50
 swift.cacheSize=512
-swift.cacheSizeLimit=0
-swift.queryCacheTimeThreshold=30000
+swift.cacheSizeLimit=1500000
+swift.queryCacheTimeThreshold=5000
 swift.enableStatistics=true
 swift.computeMetadataStatistics=true
 swift.statisticsOutputDir=swiftlinks-stats
 
-swiftlinks.biasedOps=19
+swiftlinks.lazy=true
+
+swiftlinks.biasedOps=9
 swiftlinks.randomOps=1
 
-swiftlinks.thinkTime=500
+swiftlinks.thinkTime=1000
 
-swiftlinks.numUsers=500
-swiftlinks.numSubreddits=5
+swiftlinks.numUsers=1500
+swiftlinks.numSubreddits=10
 swiftlinks.numLinks=500
-swiftlinks.avgCommentsPerLink=15
+swiftlinks.avgCommentsPerLink=10
 
 swiftlinks.avgUpvotesPerLink=100
 swiftlinks.avgDownvotesPerLink=70
@@ -30,5 +32,5 @@ swiftlinks.avgUpvotesPerComment=10
 swiftlinks.avgDownvotesPerComment=3
 
 swiftlinks.linksPerQuery=25
-swiftlinks.commentsPerQuery=15
+swiftlinks.commentsPerQuery=25
 

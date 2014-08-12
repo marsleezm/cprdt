@@ -28,6 +28,14 @@ class Topology {
         res += scouts()
         res = res.unique()
     }
+    
+    def static List surrogates() {
+        def res = []
+        datacenters.each {
+            res += it.surrogates
+        }
+        res = res.unique()
+    }
 
     def static List scouts() {
         def res = []
