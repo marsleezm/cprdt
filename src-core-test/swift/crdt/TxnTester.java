@@ -106,7 +106,7 @@ public class TxnTester implements TxnHandle {
         return get(id, create, classOfV, listener, false);
     }
 
-    protected <V extends CRDT<V>> ManagedCRDT<V> getOrCreateVersionedCRDT(CRDTIdentifier id, Class<V> classOfV,
+    public <V extends CRDT<V>> ManagedCRDT<V> getOrCreateVersionedCRDT(CRDTIdentifier id, Class<V> classOfV,
             boolean create) throws InstantiationException, IllegalAccessException, InvocationTargetException,
             NoSuchMethodException, NoSuchObjectException {
         @SuppressWarnings("unchecked")
@@ -268,8 +268,13 @@ public class TxnTester implements TxnHandle {
             throw new RuntimeException(e.toString());
         }
         managedObject = managedObject.copyWithRestrictedVersioning(getClock());
-        managedObject.applyShardQuery(new HollowShardQuery(), getClock());
+        managedObject.applyShardQuery(query, getClock());
         localView.mergeSameVersion(managedObject.getVersion(getClock(), this));
+    }
+
+    @Override
+    public <V extends CRDT<V>> boolean objectIsFound(CRDTIdentifier id, Class<V> classOfV) {
+        return objects.get(id) != null;
     }
 
 }

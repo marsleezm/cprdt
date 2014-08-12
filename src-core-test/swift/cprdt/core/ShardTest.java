@@ -10,6 +10,11 @@ import java.util.Set;
 import org.junit.Test;
 
 
+/**
+ * Testing of shard definition
+ * 
+ * @author Iwan Briquemont
+ */
 public class ShardTest {
     
     @Test

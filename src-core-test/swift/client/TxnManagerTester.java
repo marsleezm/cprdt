@@ -23,7 +23,8 @@ import swift.exceptions.WrongTypeException;
 
 /**
  * Really simple fake Txn manager implementation (to test the TxnHandle)
- * @author iwan
+ * 
+ * @author Iwan Briquemont
  *
  */
 public class TxnManagerTester implements TxnManager {
@@ -45,7 +46,7 @@ public class TxnManagerTester implements TxnManager {
             CachePolicy cachePolicy, boolean create, Class<V> classOfV, ObjectUpdatesListener updatesListener,
             CRDTShardQuery<V> query) throws WrongTypeException, NoSuchObjectException, VersionNotFoundException,
             NetworkException {
-        return getObjectVersionTxnView(txn, id, latestClock, true, classOfV, updatesListener, query);
+        return getObjectVersionTxnView(txn, id, latestClock, create, classOfV, updatesListener, query);
     }
 
     @Override
@@ -67,7 +68,6 @@ public class TxnManagerTester implements TxnManager {
             }
             final CausalityClock clock = version.clone();
             crdt = new ManagedCRDT<V>(id, checkpoint, clock, false);
-            store.put(id, crdt);
         }
         
         crdt = crdt.copyWithRestrictedVersioning(version);
@@ -84,24 +84,19 @@ public class TxnManagerTester implements TxnManager {
 
     @Override
     public void commitTxn(AbstractTxnHandle txn) {
+        
         txn.markLocallyCommitted();
 
-        if (requiresGlobalCommit(txn)) {
-
-            latestClock.record(txn.getClientTimestamp());
-            for (final CRDTObjectUpdatesGroup<?> opsGroup : txn.getAllUpdates()) {
-                final CRDTIdentifier id = opsGroup.getTargetUID();
-                applyLocalObjectUpdates(store.get(id), txn);
-            }
-            augmentAllWithScoutTimestampWithoutMappings(txn.getClientTimestamp());
-            latestClock.merge(txn.getUpdatesDependencyClock());
-
-            // Global commit
-            txn.markGloballyCommitted(txn.getClientTimestamp());
-
-        } else {
-            txn.markGloballyCommitted(null);
+        latestClock.record(txn.getClientTimestamp());
+        for (final CRDTObjectUpdatesGroup<?> opsGroup : txn.getAllUpdates()) {
+            final CRDTIdentifier id = opsGroup.getTargetUID();
+            applyLocalObjectUpdates(id, txn);
         }
+        augmentAllWithScoutTimestampWithoutMappings(txn.getClientTimestamp());
+        latestClock.merge(txn.getUpdatesDependencyClock());
+
+        // Global commit
+        txn.markGloballyCommitted(txn.getClientTimestamp());
     }
     
     synchronized void augmentAllWithScoutTimestampWithoutMappings(Timestamp clientTimestamp) {
@@ -123,12 +118,19 @@ public class TxnManagerTester implements TxnManager {
     }
     
     @SuppressWarnings({ "unchecked", "rawtypes" })
-    private void applyLocalObjectUpdates(ManagedCRDT cachedCRDT, final AbstractTxnHandle localTxn) {
-        if (cachedCRDT == null) {
-            return;
-        }
+    private void applyLocalObjectUpdates(CRDTIdentifier id, final AbstractTxnHandle localTxn) {
+        
+        ManagedCRDT cachedCRDT = store.get(id);
 
-        final CRDTObjectUpdatesGroup objectUpdates = localTxn.getObjectUpdates(cachedCRDT.getUID());
+        final CRDTObjectUpdatesGroup objectUpdates = localTxn.getObjectUpdates(id);
+        if (cachedCRDT == null) {
+            if (objectUpdates != null && objectUpdates.hasCreationState()) {
+                cachedCRDT = new ManagedCRDT(id, objectUpdates.getCreationState(), localTxn.getUpdatesDependencyClock(), true);
+                store.put(id, cachedCRDT);
+            } else {
+                return;
+            }
+        }
         if (objectUpdates != null) {
             cachedCRDT.execute(objectUpdates, CRDTOperationDependencyPolicy.IGNORE);
         } else {

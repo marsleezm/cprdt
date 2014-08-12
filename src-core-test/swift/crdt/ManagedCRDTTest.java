@@ -624,6 +624,12 @@ public class ManagedCRDTTest {
                     ObjectUpdatesListener listener) {
                 return;
             }
+
+            @Override
+            public <V extends CRDT<V>> boolean objectIsFound(CRDTIdentifier id, Class<V> classOfV)
+                    throws WrongTypeException, VersionNotFoundException, NetworkException {
+                return true;
+            }
         });
         assertNotNull(creationStateRef.get());
 
