@@ -79,7 +79,7 @@ public abstract class AbstractAddWinsSetCRDT<V, T extends AbstractAddWinsSetCRDT
     }
     
     @Override
-    public int estimatedSize() {
+    public long estimatedSize() {
         return size();
     }
     
@@ -98,6 +98,16 @@ public abstract class AbstractAddWinsSetCRDT<V, T extends AbstractAddWinsSetCRDT
         final TripleTimestamp ts = nextTimestamp();
         final Set<TripleTimestamp> existingInstances = AddWinsUtils.add(getElementsInstances(), element, ts);
         registerLocalOperation(new AddWinsSetAddUpdate<V, T>(element, ts, existingInstances));
+    }
+    
+    /**
+     * Add an element without garbage collection
+     * @param element
+     */
+    public void addBlind(final V element) {
+        final TripleTimestamp ts = nextTimestamp();
+        AddWinsUtils.add(getElementsInstances(), element, ts);
+        registerLocalOperation(new AddWinsSetAddUpdate<V, T>(element, ts, null));
     }
 
     public void remove(V element) throws VersionNotFoundException, NetworkException {

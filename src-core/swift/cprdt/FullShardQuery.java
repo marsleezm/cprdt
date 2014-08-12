@@ -4,6 +4,13 @@ import swift.cprdt.core.CRDTShardQuery;
 import swift.cprdt.core.Shard;
 import swift.crdt.core.CRDT;
 
+/**
+ * Basic shard query to request a full object replica
+ * 
+ * @author Iwan Briquemont
+ *
+ * @param <V>
+ */
 public class FullShardQuery<V extends CRDT<V>> implements CRDTShardQuery<V> {
     
     public FullShardQuery() {

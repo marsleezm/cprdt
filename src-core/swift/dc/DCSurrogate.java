@@ -300,6 +300,7 @@ final public class DCSurrogate extends SwiftProtocolHandler {
                 if (cltLastSeqNo != null)
                     crdt.augmentWithScoutClockWithoutMappings(cltLastSeqNo);
                 
+                // Partial replication support
                 crdt.applyShardQuery(request.getQuery(), request.getRequestedVersion());
                 crdt.pruneUpdates(request.getVersionInCache());
                 

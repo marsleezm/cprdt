@@ -44,7 +44,7 @@ import swift.proto.MetadataStatsCollector;
  * <p>
  * Thread unsafe (requires external synchronization).
  * 
- * @author smduarte, mzawirski
+ * @author smduarte, mzawirski, Iwan Briquemont
  */
 class LRUObjectsCache {
 
@@ -151,8 +151,8 @@ class LRUObjectsCache {
             evictionProtections.add(txnSerial);
         }
         
-        int previousSize = 0;
-        int newSize = 0;
+        long previousSize = 0;
+        long newSize = 0;
 
         CRDTIdentifier id = object.getUID();
 
@@ -177,6 +177,9 @@ class LRUObjectsCache {
         
         e = new Entry(mergedObject, txnSerial);
         entries.put(id, e);
+        if (shadowEntries.get(id) == null) {
+            previousSize = 0;
+        }
         shadowEntries.put(id, e);
         
         newSize = e.size();
@@ -377,7 +380,7 @@ class LRUObjectsCache {
         private long accesses;
         private long txnId;
         private long serial = g_serial.incrementAndGet();
-        private int size;
+        private long size;
 
         public Entry(final ManagedCRDT<?> object, long txnId) {
             this.object = object;
@@ -394,7 +397,7 @@ class LRUObjectsCache {
             return object;
         }
         
-        public int size() {
+        public long size() {
             return size;
         }
 

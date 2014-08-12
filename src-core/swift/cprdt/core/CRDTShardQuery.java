@@ -17,6 +17,12 @@ package swift.cprdt.core;
 
 import swift.crdt.core.CRDT;
 
+/**
+ * 
+ * @author Iwan Briquemont
+ *
+ * @param <V>
+ */
 public interface CRDTShardQuery<V extends CRDT<V>> {
     
     /**

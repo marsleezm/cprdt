@@ -37,7 +37,7 @@ public class AddOnlySetCRDT<V> extends BaseCRDT<AddOnlySetCRDT<V>> {
     }
     
     @Override
-    public int estimatedSize() {
+    public long estimatedSize() {
         return elements.size();
     }
 

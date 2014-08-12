@@ -6,6 +6,13 @@ import swift.cprdt.core.CRDTShardQuery;
 import swift.cprdt.core.Shard;
 import swift.crdt.core.CRDT;
 
+/**
+ * Shard query to get a hollow replica of an object
+ * 
+ * @author Iwan Briquemont
+ *
+ * @param <V>
+ */
 public class HollowShardQuery<V extends CRDT<V>> implements CRDTShardQuery<V> {
     
     public HollowShardQuery() {

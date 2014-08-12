@@ -133,6 +133,18 @@ public class ManagedCRDT<V extends CRDT<V>> {
     public int getNumberOfUpdates() {
         return strippedLog.size();
     }
+    
+    /**
+     * For stats
+     * @return
+     */
+    public int getNumberOfOperations() {
+        int size = 0;
+        for (CRDTObjectUpdatesGroup<V> group: strippedLog) {
+            size += group.getOperations().size();
+        }
+        return size;
+    }
 
     /**
      * Returns object registration status in the store.
@@ -707,18 +719,7 @@ public class ManagedCRDT<V extends CRDT<V>> {
                 registeredInStore, checkpoint, strippedLog);
     }
     
-    public int estimatedSize() {
+    public long estimatedSize() {
         return checkpoint.estimatedSize() + strippedLog.size();
-    }
-
-    public int computeSize(MetadataStatsCollector collector) {
-        Kryo kryo = collector.getFreshKryo();
-        Output buffer = collector.getFreshKryoBuffer();
-
-        kryo.writeObject(buffer, this);
-        final int totalSize = buffer.position();
-        buffer.clear();
-        
-        return totalSize;
     }
 }

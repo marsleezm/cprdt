@@ -59,7 +59,7 @@ public interface CRDT<V extends CRDT<V>> extends Copyable {
      */
     Object getValue();
     
-    int estimatedSize();
+    long estimatedSize();
 
     /**
      * @return unique id of this object
@@ -98,6 +98,8 @@ public interface CRDT<V extends CRDT<V>> extends Copyable {
     
     public void fetch(Set<?> particles) throws VersionNotFoundException, NetworkException;
     public void fetch(CRDTShardQuery<V> query) throws VersionNotFoundException, NetworkException;
+    
+    public boolean objectIsFound() throws VersionNotFoundException, NetworkException;
     
     /**
      * Make a partial copy of the CRDT

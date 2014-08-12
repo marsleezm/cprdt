@@ -117,6 +117,8 @@ abstract class AbstractTxnHandle implements TxnHandle, Comparable<AbstractTxnHan
     final protected Map<CRDTIdentifier, CRDT<?>> checkpointCache;
     final protected Map<CRDTIdentifier, Set<CRDTShardQuery<?>>> objectQueriesCache;
     final protected Set<CRDTIdentifier> toCreate;
+    final protected Set<CRDTIdentifier> fetched;
+    final protected Set<CRDTIdentifier> notFound;
 
     /**
      * Creates an update transaction.
@@ -156,6 +158,8 @@ abstract class AbstractTxnHandle implements TxnHandle, Comparable<AbstractTxnHan
         this.checkpointCache = new ConcurrentHashMap<CRDTIdentifier, CRDT<?>>();
         this.objectQueriesCache = new HashMap<CRDTIdentifier, Set<CRDTShardQuery<?>>>();
         this.toCreate = Collections.newSetFromMap(new ConcurrentHashMap<CRDTIdentifier, Boolean>());
+        this.fetched = Collections.newSetFromMap(new ConcurrentHashMap<CRDTIdentifier, Boolean>());
+        this.notFound = Collections.newSetFromMap(new ConcurrentHashMap<CRDTIdentifier, Boolean>());
         
         initStats(stats);
     }
@@ -193,6 +197,8 @@ abstract class AbstractTxnHandle implements TxnHandle, Comparable<AbstractTxnHan
         this.checkpointCache = new ConcurrentHashMap<CRDTIdentifier, CRDT<?>>();
         this.objectQueriesCache = new HashMap<CRDTIdentifier, Set<CRDTShardQuery<?>>>();
         this.toCreate = Collections.newSetFromMap(new ConcurrentHashMap<CRDTIdentifier, Boolean>());
+        this.fetched = Collections.newSetFromMap(new ConcurrentHashMap<CRDTIdentifier, Boolean>());
+        this.notFound = Collections.newSetFromMap(new ConcurrentHashMap<CRDTIdentifier, Boolean>());
 
         this.serial = serialGenerator.getAndIncrement();
         initStats(stats);
@@ -242,7 +248,11 @@ abstract class AbstractTxnHandle implements TxnHandle, Comparable<AbstractTxnHan
                 query = new HollowShardQuery<V>();
             }
             
-            return getImpl(id, create, classOfV, listener, query);
+            V view = (V) getImpl(id, create, classOfV, listener, query, lazy);
+            if (!lazy) {
+                fetched.add(id);
+            }
+            return view;
         } catch (ClassCastException x) {
             throw new WrongTypeException(x.getMessage());
         }
@@ -280,10 +290,12 @@ abstract class AbstractTxnHandle implements TxnHandle, Comparable<AbstractTxnHan
             }
         }
         try {
-            getImpl(id, true, classOfV, updatesListener, query);
+            getImpl(id, true, classOfV, updatesListener, query, false);
         } catch (NoSuchObjectException e) {
             throw new IllegalStateException("Object not found during fetch");
         }
+        
+        fetched.add(id);
         
         if (!query.isAvailableIn(localView.getShard())) {
             // We cache the query to know we already did it
@@ -295,6 +307,29 @@ abstract class AbstractTxnHandle implements TxnHandle, Comparable<AbstractTxnHan
             }
             queries.add(query);
         }
+    }
+    
+    public <V extends CRDT<V>> boolean objectIsFound(CRDTIdentifier id, Class<V> classOfV) throws WrongTypeException,
+    VersionNotFoundException, NetworkException {
+        V localView = (V) this.objectViewsCache.get(id);
+        if (localView == null) {
+            throw new IllegalStateException("Checking if an object was found without a previous get");
+        }
+        if (notFound.contains(id)) {
+            return false;
+        }
+        if (fetched.contains(id)) {
+            return true;
+        }
+        try {
+            getImpl(id, false, classOfV, null, new HollowShardQuery<V>(), false);
+            
+            fetched.add(id);
+        } catch (NoSuchObjectException e) {
+            notFound.add(id);
+            return false;
+        }
+        return true;
     }
     
     /**
@@ -330,7 +365,7 @@ abstract class AbstractTxnHandle implements TxnHandle, Comparable<AbstractTxnHan
     public synchronized void commitAsync(final CommitListener listener) {
         assertStatus(TxnStatus.PENDING);
         for (CRDTIdentifier id: toCreate) {
-            if (localObjectOperations.get(id) == null) {
+            if (!fetched.contains(id)) {
                 registerObjectCreation(id, (CRDT) checkpointCache.get(id));
             }
         }
@@ -396,6 +431,8 @@ abstract class AbstractTxnHandle implements TxnHandle, Comparable<AbstractTxnHan
 
     @Override
     public synchronized <V extends CRDT<V>> void registerObjectCreation(CRDTIdentifier id, V creationState) {
+        notFound.add(id);
+        
         if (isReadOnly()) {
             return;
         }
@@ -521,7 +558,7 @@ abstract class AbstractTxnHandle implements TxnHandle, Comparable<AbstractTxnHan
      * depends on every version read by the transaction.
      */
     protected abstract <V extends CRDT<V>> V getImpl(CRDTIdentifier id, boolean create, Class<V> classOfV,
-            ObjectUpdatesListener updatesListener, CRDTShardQuery<V> query) throws WrongTypeException,
+            ObjectUpdatesListener updatesListener, CRDTShardQuery<V> query, boolean createLocally) throws WrongTypeException,
             NoSuchObjectException, VersionNotFoundException, NetworkException;
 
     /**

@@ -90,7 +90,7 @@ class SnapshotIsolationTxnHandle extends AbstractTxnHandle implements TxnHandle 
 
     @Override
     protected <V extends CRDT<V>> V getImpl(CRDTIdentifier id, boolean create, Class<V> classOfV,
-            ObjectUpdatesListener updatesListener, CRDTShardQuery<V> query) throws WrongTypeException, NoSuchObjectException,
+            ObjectUpdatesListener updatesListener, CRDTShardQuery<V> query, boolean createLocally) throws WrongTypeException, NoSuchObjectException,
             VersionNotFoundException, NetworkException {
         CRDT<V> localView = (CRDT<V>) objectViewsCache.get(id);
         
@@ -110,7 +110,7 @@ class SnapshotIsolationTxnHandle extends AbstractTxnHandle implements TxnHandle 
             }
         } else {
             CausalityClock clock = getUpdatesDependencyClock().clone();
-            if (updatesListener == null && create && query.isAvailableIn(Shard.hollow)) {
+            if (updatesListener == null && createLocally && query.isAvailableIn(Shard.hollow)) {
                 final V checkpoint;
                 try {
                     final Constructor<V> constructor = classOfV.getConstructor(CRDTIdentifier.class);

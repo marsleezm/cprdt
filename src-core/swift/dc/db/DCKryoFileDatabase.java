@@ -56,7 +56,7 @@ public class DCKryoFileDatabase implements DCNodeDatabase {
                 throw new RuntimeException("KryoDB: need to set kryp.dbFile property");
             }
 
-            dbFile = new File(props.getProperty("kryo.dbFile"));
+            dbFile = new File(props.getProperty(DCKryoFileDatabase.DB_PROPERTY));
             if (dbFile.exists()) {
                 DataInputStream dis = new DataInputStream(new FileInputStream(dbFile));
                 byte[] data;
@@ -96,7 +96,7 @@ public class DCKryoFileDatabase implements DCNodeDatabase {
             db.put(table, tableData = new HashMap<String, Object>());
         tableData.put(key, data);
 
-        // scheduleFlushToDisk();
+        scheduleFlushToDisk();
         return true;
     }
 

@@ -79,7 +79,7 @@ class RepeatableReadsTxnHandle extends AbstractTxnHandle {
 
     @Override
     protected <V extends CRDT<V>> V getImpl(CRDTIdentifier id, boolean create, Class<V> classOfV,
-            ObjectUpdatesListener updatesListener, CRDTShardQuery<V> query) throws WrongTypeException, NoSuchObjectException,
+            ObjectUpdatesListener updatesListener, CRDTShardQuery<V> query, boolean createLocally) throws WrongTypeException, NoSuchObjectException,
             VersionNotFoundException, NetworkException {
         CRDT<V> localView = (CRDT<V>) objectViewsCache.get(id);
         if (localView != null) {

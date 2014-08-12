@@ -20,6 +20,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.ConcurrentModificationException;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -101,7 +102,7 @@ public final class StatsImpl implements Stats {
             boolean overwriteDir) {
         StatsImpl stats = statisticsByName.get(name);
         if (stats == null) {
-            stats = new StatsImpl(outputDir, overwriteDir, samplingInterval);
+            stats = new StatsImpl(outputDir + File.separator + name, overwriteDir, samplingInterval);
             stats.init(samplingInterval);
             statisticsByName.put(name, stats);
         } else {
@@ -165,6 +166,8 @@ public final class StatsImpl implements Stats {
 
                     } catch (InterruptedException e) {
                         e.printStackTrace();
+                    } catch (ConcurrentModificationException e) {
+                        e.printStackTrace();
                     }
                 }
 
@@ -189,7 +192,7 @@ public final class StatsImpl implements Stats {
         }
 
         if (!dir.exists()) {
-            boolean result = dir.mkdir();
+            boolean result = dir.mkdirs();
             if (!result) {
                 logger.log(Level.WARNING, outputDir
                         + " directory does not exist and it is impossible to create, cannot dump statistics");

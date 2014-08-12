@@ -7,12 +7,21 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableSet;
+import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
 import swift.crdt.core.Copyable;
 
 
+/**
+ * Simple indexing class based on TreeSet
+ * 
+ * @author Iwan Briquemont
+ *
+ * @param <K>
+ * @param <V>
+ */
 public class SortedIndex<K,V extends Comparable<V>> implements Copyable {
 	protected NavigableSet<Entry> index;
     protected Map<V, K> keyValues;
@@ -149,10 +158,32 @@ public class SortedIndex<K,V extends Comparable<V>> implements Copyable {
 	    }
         return new SortedIndex<K,V>(newIndex, newKeyValues, comparator);
     }
+    
+    public SortedIndex<K,V> copyFraction(Set<V> fraction) {
+        TreeSet<Entry> newIndex = new TreeSet<Entry>();
+        HashMap<V,K> newKeyValues = new HashMap<V,K>(3 * fraction.size() / 2 + 1);
+        for (V value: fraction) {
+            K key = keyValues.get(newKeyValues);
+            if (key != null) {
+                newKeyValues.put(value, key);
+                newIndex.add(new Entry(key, value));
+            }
+        }
+        return new SortedIndex<K,V>(newIndex, newKeyValues, comparator);
+    }
 	
 	public SortedIndex<K,V> copy() {
 	    return new SortedIndex<K,V>(new TreeSet<Entry>(index), new HashMap<V,K>(keyValues), comparator);
 	}
+	
+	public void merge(SortedIndex<K,V> other) {
+	    this.index.addAll(other.index);
+	    for (Map.Entry<V, K> entry: other.keyValues.entrySet()) {
+	        if (this.keyValues.get(entry.getKey()) == null) {
+	            this.keyValues.put(entry.getKey(), entry.getValue());
+	        }
+	    }
+    }
 	
 	public class Entry implements Comparable<Entry> {
 	    private K key;

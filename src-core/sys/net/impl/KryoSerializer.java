@@ -38,7 +38,7 @@ public class KryoSerializer implements Serializer {
     public byte[] writeObject(Object obj) throws SerializerException {
         try {
 
-            Output output = new Output(1 << 10, 1 << 22);
+            Output output = new Output(1 << 10, 1 << 27);
             KryoLib.kryo().writeClassAndObject(output, obj);
             output.close();
             return output.toBytes();

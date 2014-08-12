@@ -15,9 +15,9 @@ import com.esotericsoftware.kryo.io.UnsafeMemoryOutput;
  */
 public class MetadataStatsCollectorImpl implements MetadataStatsCollector {
     private String scoutId;
-    private ThreadLocal<UnsafeMemoryOutput> freshKryoBuffer = new ThreadLocal<UnsafeMemoryOutput>() {
-        protected UnsafeMemoryOutput initialValue() {
-            return new UnsafeMemoryOutput(1 << 20);
+    private ThreadLocal<Output> freshKryoBuffer = new ThreadLocal<Output>() {
+        protected Output initialValue() {
+            return new Output(1 << 10, 1 << 27);
         }
     };
     private PrintStream stream;

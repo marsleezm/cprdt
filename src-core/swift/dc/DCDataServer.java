@@ -374,7 +374,7 @@ final class DCDataServer {
             CRDTData<?> data = localGetCRDT(id);
             if (data == null) {
                 if (!grp.hasCreationState()) {
-                    logger.warning("No creation state provided by client for an object that does not exist "
+                    logger.severe("No creation state provided by client for an object that does not exist "
                             + grp.getTargetUID());
                     return new ExecCRDTResult(false);
                 }

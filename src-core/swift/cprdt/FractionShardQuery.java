@@ -6,6 +6,13 @@ import swift.cprdt.core.CRDTShardQuery;
 import swift.cprdt.core.Shard;
 import swift.crdt.core.CRDT;
 
+/**
+ * Basic shard query to request a set of particles
+ * 
+ * @author Iwan Briquemont
+ *
+ * @param <V>
+ */
 public class FractionShardQuery<V extends CRDT<V>> implements CRDTShardQuery<V> {
     
     protected Set<?> particles;

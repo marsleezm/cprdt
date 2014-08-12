@@ -179,7 +179,19 @@ public abstract class BaseCRDT<V extends BaseCRDT<V>> implements CRDT<V> {
             throw new IllegalStateException(e.getMessage());
         }
     }
-    
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public boolean objectIsFound() throws VersionNotFoundException, NetworkException {
+        if (this.getTxnHandle() == null) {
+            return false;
+        }
+        try {
+            return this.getTxnHandle().objectIsFound(this.getUID(), (Class<V>) this.getClass());
+        } catch (WrongTypeException e) {
+            throw new IllegalStateException(e.getMessage());
+        }
+    }
     @Override
     /**
      * Must be overridden if the CRDT supports partial replicas
@@ -204,7 +216,7 @@ public abstract class BaseCRDT<V extends BaseCRDT<V>> implements CRDT<V> {
     }
     
     @Override
-    public int estimatedSize() {
+    public long estimatedSize() {
         return 1;
     }
 }

@@ -157,7 +157,8 @@ public class SwiftImpl implements SwiftScout, TxnManager, FailOverHandler {
     public static SwiftSession newSingleSessionInstance(final SwiftOptions options) {
         Endpoint[] servers = parseEndpoints(options.getServerHostname());
         final SwiftScout sharedImpl = new SwiftImpl(Networking.rpcConnect().toDefaultService(), servers,
-                new LRUObjectsCache(options.getCacheEvictionTimeMillis(), options.getCacheSize(), options.getQueryCacheTimeThreshold(), options.getCacheSizeLimit()), options);
+                new LRUObjectsCache(options.getCacheEvictionTimeMillis(), options.getCacheSize(),
+                        options.getQueryCacheTimeThreshold(), options.getCacheSizeLimit()), options);
         return sharedImpl.newSession("singleton-session");
     }
 
@@ -173,14 +174,31 @@ public class SwiftImpl implements SwiftScout, TxnManager, FailOverHandler {
         Endpoint[] servers = parseEndpoints(options.getServerHostname());
 
         return new SwiftImpl(Networking.rpcConnect().toDefaultService(), servers, new LRUObjectsCache(
-                options.getCacheEvictionTimeMillis(), options.getCacheSize(), options.getQueryCacheTimeThreshold(), options.getCacheSizeLimit()), options);
+                options.getCacheEvictionTimeMillis(), options.getCacheSize(), options.getQueryCacheTimeThreshold(),
+                options.getCacheSizeLimit()), options);
     }
+
+    static char[] base64Chars = { 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q',
+            'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l',
+            'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '0', '1', '2', '3', '4', '5', '6',
+            '7', '8', '9', '+', '-' };
 
     private static String generateScoutId() {
         final UUID uuid = UUID.randomUUID();
         final byte[] uuidBytes = ByteBuffer.allocate(Long.SIZE / Byte.SIZE * 2).putLong(uuid.getMostSignificantBits())
                 .putLong(uuid.getLeastSignificantBits()).array();
-        final String result = DatatypeConverter.printBase64Binary(uuidBytes);
+        // FIXME: Temporary base 64 encoder because of bug with
+        // DatatypeConverter.printBase64Binary
+        StringBuilder sb = new StringBuilder();
+        for (byte b : uuidBytes) {
+            int unsigned = b - Byte.MIN_VALUE;
+            int mostSignificant = unsigned >> 4;
+            int leastSignificant = unsigned & 0xf;
+            sb.append(base64Chars[mostSignificant]);
+            sb.append(base64Chars[leastSignificant]);
+        }
+        final String result = sb.toString();
+        // final String result = DatatypeConverter.printBase64Binary(uuidBytes);
         // FIXME: measurement hack, shrink the String size, since we encode it
         // inefficiently (we should have a separate ClientId class).
         // Realistically, these 4 UTF-16 chars represent what's needed with a
@@ -281,7 +299,7 @@ public class SwiftImpl implements SwiftScout, TxnManager, FailOverHandler {
 
     SortedSet<CRDTIdentifier> notified = new TreeSet<CRDTIdentifier>();
     private final boolean assumeAtomicCausalNotifications;
-    
+
     // Latest version that was requested (if the object is not in the cache)
     private final Map<CRDTIdentifier, CausalityClock> requestedVersions;
 
@@ -427,9 +445,9 @@ public class SwiftImpl implements SwiftScout, TxnManager, FailOverHandler {
         // new FailOverWatchDog().start();
 
         clockSkewEstimate();
-        
+
         getDCClockEstimates();
-        
+
         this.requestedVersions = new HashMap<CRDTIdentifier, CausalityClock>();
     }
 
@@ -712,15 +730,17 @@ public class SwiftImpl implements SwiftScout, TxnManager, FailOverHandler {
 
     @Override
     public <V extends CRDT<V>> V getObjectLatestVersionTxnView(AbstractTxnHandle txn, CRDTIdentifier id,
-            CachePolicy cachePolicy, boolean create, Class<V> classOfV, final ObjectUpdatesListener updatesListener, CRDTShardQuery<V> query)
-            throws WrongTypeException, NoSuchObjectException, VersionNotFoundException, NetworkException {
+            CachePolicy cachePolicy, boolean create, Class<V> classOfV, final ObjectUpdatesListener updatesListener,
+            CRDTShardQuery<V> query) throws WrongTypeException, NoSuchObjectException, VersionNotFoundException,
+            NetworkException {
 
         synchronized (this) {
             assertPendingTransaction(txn);
 
             if (cachePolicy == CachePolicy.CACHED) {
                 try {
-                    final V view = getCachedObjectForTxn(txn, id, create, null, classOfV, updatesListener, query, null, false);
+                    final V view = getCachedObjectForTxn(txn, id, create, null, classOfV, updatesListener, query, null,
+                            false);
                     cacheStats.addCacheHit(id);
                     return view;
                 } catch (NoSuchObjectException x) {
@@ -779,12 +799,13 @@ public class SwiftImpl implements SwiftScout, TxnManager, FailOverHandler {
     @Override
     public <V extends CRDT<V>> V getObjectVersionTxnView(AbstractTxnHandle txn, final CRDTIdentifier id,
             final CausalityClock version, final boolean create, Class<V> classOfV,
-            final ObjectUpdatesListener updatesListener, CRDTShardQuery<V> query) throws WrongTypeException, NoSuchObjectException,
-            VersionNotFoundException, NetworkException {
+            final ObjectUpdatesListener updatesListener, CRDTShardQuery<V> query) throws WrongTypeException,
+            NoSuchObjectException, VersionNotFoundException, NetworkException {
         assertPendingTransaction(txn);
 
         try {
-            final V view = getCachedObjectForTxn(txn, id, create, version, classOfV, updatesListener, query, version, false);
+            final V view = getCachedObjectForTxn(txn, id, create, version, classOfV, updatesListener, query, version,
+                    false);
             cacheStats.addCacheHit(id);
             return view;
         } catch (NoSuchObjectException x) {
@@ -794,8 +815,9 @@ public class SwiftImpl implements SwiftScout, TxnManager, FailOverHandler {
             cacheStats.addCacheMissWrongVersion(id);
             // Ok, let's try to fetch the right version.
         }
-        
-        // Make sure we ask the cache for the same version we fetched (needed for query caching)
+
+        // Make sure we ask the cache for the same version we fetched (needed
+        // for query caching)
         CausalityClock requestedVersion = version.clone();
 
         while (true) {
@@ -806,7 +828,8 @@ public class SwiftImpl implements SwiftScout, TxnManager, FailOverHandler {
             }
 
             try {
-                return getCachedObjectForTxn(txn, id, create, version, classOfV, updatesListener, query, requestedVersion, true);
+                return getCachedObjectForTxn(txn, id, create, version, classOfV, updatesListener, query,
+                        requestedVersion, true);
                 // TODO: does it work? it used to fail (hotfix: drop scout's
                 // entry from version) as reported by smduarte:
                 // WITH SI, at least, FAILS AFTER 10min running, as
@@ -844,12 +867,13 @@ public class SwiftImpl implements SwiftScout, TxnManager, FailOverHandler {
      * @throws VersionNotFoundException
      */
     @SuppressWarnings("unchecked")
-    private synchronized <V extends CRDT<V>> V getCachedObjectForTxn(final AbstractTxnHandle txn, CRDTIdentifier id, boolean create,
-            CausalityClock clock, Class<V> classOfV, ObjectUpdatesListener updatesListener, CRDTShardQuery<V> query, CausalityClock queryVersion, boolean justFetched)
-            throws WrongTypeException, NoSuchObjectException, VersionNotFoundException {
+    private synchronized <V extends CRDT<V>> V getCachedObjectForTxn(final AbstractTxnHandle txn, CRDTIdentifier id,
+            boolean create, CausalityClock clock, Class<V> classOfV, ObjectUpdatesListener updatesListener,
+            CRDTShardQuery<V> query, CausalityClock queryVersion, boolean justFetched) throws WrongTypeException,
+            NoSuchObjectException, VersionNotFoundException {
 
         // System.err.println("---->" + id + "      " + clock);
-        
+
         CausalityClock requestedClock = clock;
 
         if (clock == null) {
@@ -876,11 +900,11 @@ public class SwiftImpl implements SwiftScout, TxnManager, FailOverHandler {
         } catch (ClassCastException x) {
             throw new WrongTypeException(x.getMessage());
         }
-        
+
         if (crdt == null) {
             throw new NoSuchObjectException("Object not available in the cache");
         }
-        
+
         if (requestedClock == null) {
             // Check if such a recent version is available in the cache. If not,
             // take the intersection of the clocks.
@@ -922,7 +946,7 @@ public class SwiftImpl implements SwiftScout, TxnManager, FailOverHandler {
         }
         return crdtView;
     }
-    
+
     /**
      * 
      * @param id
@@ -950,9 +974,9 @@ public class SwiftImpl implements SwiftScout, TxnManager, FailOverHandler {
     }
 
     private <V extends CRDT<V>> void fetchObjectVersion(final AbstractTxnHandle txn, CRDTIdentifier id, boolean create,
-            Class<V> classOfV, final CausalityClock version, CRDTShardQuery<V> query, final boolean strictUnprunedVersion,
-            final boolean subscribeUpdates) throws WrongTypeException, NoSuchObjectException, VersionNotFoundException,
-            NetworkException, InterruptedException {
+            Class<V> classOfV, final CausalityClock version, CRDTShardQuery<V> query,
+            final boolean strictUnprunedVersion, final boolean subscribeUpdates) throws WrongTypeException,
+            NoSuchObjectException, VersionNotFoundException, NetworkException, InterruptedException {
         // WISHME: Add a real delta-log shipping support?
 
         fetchObjectFromScratch(txn, id, create, classOfV, version, query, strictUnprunedVersion, subscribeUpdates);
@@ -960,9 +984,9 @@ public class SwiftImpl implements SwiftScout, TxnManager, FailOverHandler {
 
     @SuppressWarnings("unchecked")
     private <V extends CRDT<V>> void fetchObjectFromScratch(final AbstractTxnHandle txn, CRDTIdentifier id,
-            boolean create, Class<V> classOfV, CausalityClock version, CRDTShardQuery<V> query, boolean strictUnprunedVersion,
-            boolean subscribeUpdates) throws NoSuchObjectException, WrongTypeException, VersionNotFoundException,
-            NetworkException, InterruptedException {
+            boolean create, Class<V> classOfV, CausalityClock version, CRDTShardQuery<V> query,
+            boolean strictUnprunedVersion, boolean subscribeUpdates) throws NoSuchObjectException, WrongTypeException,
+            VersionNotFoundException, NetworkException, InterruptedException {
 
         // TODO Q: what is this?
         if (subscribeUpdates)
@@ -973,10 +997,10 @@ public class SwiftImpl implements SwiftScout, TxnManager, FailOverHandler {
         // Record and drop scout's entry from the requested clock (efficiency?).
         final Timestamp requestedScoutVersion = version.getLatest(scoutId);
         version.drop(this.scoutId);
-        
+
         // To allow pruning updates from the reply
         final CausalityClock versionInCache = getKnownVersion(id, version);
-        
+
         // TODO: do we always need a DC vector? Not necessarily.
         final boolean requestDCVector = true;
         final FetchObjectVersionRequest fetchRequest = new FetchObjectVersionRequest(scoutId, disasterSafe, id,
@@ -1098,48 +1122,40 @@ public class SwiftImpl implements SwiftScout, TxnManager, FailOverHandler {
         synchronized (this) {
             updateCommittedVersions(fetchReply.getEstimatedCommittedVersion(),
                     fetchReply.getEstimatedDisasterDurableCommittedVersion());
-            
+
             /*
-            // Now done in objectsCache.add()
-            ManagedCRDT<V> cacheCRDT;
-            try {
-                if (objectsCache.has(request.getUid(), request.getQuery(), crdt.getClock())) {
-                    if (txn != null) {
-                        cacheCRDT = (ManagedCRDT<V>) objectsCache.getAndTouch(request.getUid());
-                    } else {
-                        cacheCRDT = (ManagedCRDT<V>) objectsCache.getWithoutTouch(request.getUid());
-                    }
-                }
-            } catch (Exception e) {
-                throw new WrongTypeException(e.getMessage());
-            }
-            if (cacheCRDT == null
-                    || crdt.getClock().compareTo(cacheCRDT.getClock())
-                            .is(CMP_CLOCK.CMP_DOMINATES, CMP_CLOCK.CMP_EQUALS)) {
-                // If clock >= cacheCrdt.clock, it 1) does not make sense to
-                // merge, 2) received version may have different pruneClock,
-                // which could be either helpful or not depending on the case.
-                objectsCache.add(crdt, txn == null ? -1L : txn.serial, request.getQuery(), crdt.getClock());
-                cacheCRDT = crdt;
-            } else {
-                try {
-                    cacheCRDT.merge(crdt);
-                } catch (IllegalStateException x) {
-                    logger.warning("Merging incoming object version " + crdt.getClock() + " with the cached version "
-                            + cacheCRDT.getClock() + " has failed with our heuristic - dropping cached version" + x);
-                    cacheCRDT = crdt;
-                    objectsCache.add(crdt, txn == null ? -1L : txn.serial, request.getQuery(), crdt.getClock());
-                }
-            }
-            */
+             * // Now done in objectsCache.add() ManagedCRDT<V> cacheCRDT; try {
+             * if (objectsCache.has(request.getUid(), request.getQuery(),
+             * crdt.getClock())) { if (txn != null) { cacheCRDT =
+             * (ManagedCRDT<V>) objectsCache.getAndTouch(request.getUid()); }
+             * else { cacheCRDT = (ManagedCRDT<V>)
+             * objectsCache.getWithoutTouch(request.getUid()); } } } catch
+             * (Exception e) { throw new WrongTypeException(e.getMessage()); }
+             * if (cacheCRDT == null ||
+             * crdt.getClock().compareTo(cacheCRDT.getClock())
+             * .is(CMP_CLOCK.CMP_DOMINATES, CMP_CLOCK.CMP_EQUALS)) { // If clock
+             * >= cacheCrdt.clock, it 1) does not make sense to // merge, 2)
+             * received version may have different pruneClock, // which could be
+             * either helpful or not depending on the case.
+             * objectsCache.add(crdt, txn == null ? -1L : txn.serial,
+             * request.getQuery(), crdt.getClock()); cacheCRDT = crdt; } else {
+             * try { cacheCRDT.merge(crdt); } catch (IllegalStateException x) {
+             * logger.warning("Merging incoming object version " +
+             * crdt.getClock() + " with the cached version " +
+             * cacheCRDT.getClock() +
+             * " has failed with our heuristic - dropping cached version" + x);
+             * cacheCRDT = crdt; objectsCache.add(crdt, txn == null ? -1L :
+             * txn.serial, request.getQuery(), crdt.getClock()); } }
+             */
             ManagedCRDT<V> cacheCRDT;
             CausalityClock queriedVersion = request.getRequestedVersion();
             try {
-                cacheCRDT = (ManagedCRDT)objectsCache.add(crdt, txn == null ? -1L : txn.serial, request.getQuery(), queriedVersion);
+                cacheCRDT = (ManagedCRDT) objectsCache.add(crdt, txn == null ? -1L : txn.serial, request.getQuery(),
+                        queriedVersion);
             } catch (ClassCastException e) {
                 throw new WrongTypeException(e.getMessage());
             }
-            
+
             if (fetchReply.getStatus() != FetchStatus.VERSION_NOT_FOUND) {
                 CausalityClock version;
                 version = requestedVersions.get(request.getUid());
@@ -1152,7 +1168,7 @@ public class SwiftImpl implements SwiftScout, TxnManager, FailOverHandler {
                     }
                 }
             }
-            
+
             // Apply any local updates that may not be present in received
             // version.
             for (final AbstractTxnHandle localTxn : globallyCommittedUnstableTxns) {

@@ -34,10 +34,10 @@ import swift.exceptions.WrongTypeException;
  * transaction {@link IsolationLevel}. The freshness of read objects is
  * determined by {@link CachePolicy}. All updates issued on objects within a
  * transaction become atomically visible to other transactions at some time
- * after commit ({@link #commit(boolean)}), after causally depedent (read)
+ * after commit ({@link #commit(boolean)}), after causally dependent (read)
  * transactions.
  * 
- * @author annettebieniusa, mzawirski
+ * @author annettebieniusa, mzawirski, Iwan Briquemont
  * 
  */
 // WISHME: separate client and system interface (needed for mocks)
@@ -126,6 +126,10 @@ public interface TxnHandle {
     /**
      * See {@link #get(CRDTIdentifier, boolean, Class, ObjectUpdatesListener)}
      * with an added lazy modifier to build up the CRDT on operations
+     * 
+     * If lazy is true, it creates an empty object locally
+     * It does not check whether the object is in the store, even if create is false
+     * So you must check before committing with the objectIsFound method of the CRDT
      */
     <V extends CRDT<V>> V get(CRDTIdentifier id, boolean create, Class<V> classOfV, boolean lazy)
             throws WrongTypeException, NoSuchObjectException, VersionNotFoundException, NetworkException;
@@ -220,13 +224,63 @@ public interface TxnHandle {
      *            initial empty state of an object
      */
     <V extends CRDT<V>> void registerObjectCreation(final CRDTIdentifier id, V creationState);
-
+    
+    /**
+     * Fetch a specific set of particles
+     * and add them to the object's view
+     * 
+     * @param id
+     * @param classOfV
+     * @param particles
+     * @throws WrongTypeException
+     * @throws VersionNotFoundException
+     * @throws NetworkException
+     */
     <V extends CRDT<V>> void fetch(CRDTIdentifier id, Class<V> classOfV, Set<?> particles) throws WrongTypeException,
             VersionNotFoundException, NetworkException;
-
+    
+    /**
+     * Fetch a specific shard query
+     * and add the resulting particles to the object's view
+     * 
+     * @param id
+     * @param classOfV
+     * @param particles
+     * @throws WrongTypeException
+     * @throws VersionNotFoundException
+     * @throws NetworkException
+     */
     <V extends CRDT<V>> void fetch(CRDTIdentifier id, Class<V> classOfV, CRDTShardQuery<V> query)
             throws WrongTypeException, VersionNotFoundException, NetworkException;
-
+    
+    /**
+     * {@link #get(CRDTIdentifier, boolean, Class, CRDTShardQuery)}
+     * Also installs an update listener
+     * 
+     * @param id
+     * @param classOfV
+     * @param particles
+     * @param listener
+     * @throws WrongTypeException
+     * @throws VersionNotFoundException
+     * @throws NetworkException
+     */
     <V extends CRDT<V>> void fetch(CRDTIdentifier id, Class<V> classOfV, CRDTShardQuery<V> query,
             ObjectUpdatesListener listener) throws WrongTypeException, VersionNotFoundException, NetworkException;
+    
+    /**
+     * <b>SYSTEM USE ONLY</b>
+     * Check if an object is present in the store
+     * 
+     * Use BaseCRDT method instead
+     * 
+     * @param id
+     * @param classOfV
+     * @return
+     * @throws WrongTypeException
+     * @throws VersionNotFoundException
+     * @throws NetworkException
+     */
+    <V extends CRDT<V>> boolean objectIsFound(CRDTIdentifier id, Class<V> classOfV) throws WrongTypeException,
+    VersionNotFoundException, NetworkException;
 }
