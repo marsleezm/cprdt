@@ -5,11 +5,11 @@ import static swift.deployment.Tools.*
 import static swift.deployment.Topology.*
 
 class SwiftLinks extends SwiftBase {
-    static String INITDB_CMD = "-cp swiftcloud.jar -Djava.util.logging.config.file=logging.properties swift.application.reddit.RedditBenchmark"
-    static String SCOUT_CMD = "-Xincgc -cp swiftcloud.jar -Xincgc -Djava.util.logging.config.file=logging.properties swift.application.reddit.RedditBenchmark"
+    static String INITDB_CMD = "-cp swiftcloud.jar -Djava.util.logging.config.file=logging.properties swift.application.swiftlinks.SwiftLinksBenchmark"
+    static String SCOUT_CMD = "-Xincgc -cp swiftcloud.jar -Xincgc -Djava.util.logging.config.file=logging.properties swift.application.swiftlinks.SwiftLinksBenchmark"
     
-    static String CS_SCOUT_CMD = "-Xincgc -cp swiftcloud.jar -Xincgc -Djava.util.logging.config.file=logging.properties swift.application.reddit.cs.SwiftLinksBenchmarkServer"
-    static String CS_ENDCLIENT_CMD = "-Xincgc -cp swiftcloud.jar -Djava.util.logging.config.file=logging.properties swift.application.reddit.cs.SwiftLinksBenchmarkClient"
+    static String CS_SCOUT_CMD = "-Xincgc -cp swiftcloud.jar -Xincgc -Djava.util.logging.config.file=logging.properties swift.application.swiftlinks.cs.SwiftLinksBenchmarkServer"
+    static String CS_ENDCLIENT_CMD = "-Xincgc -cp swiftcloud.jar -Djava.util.logging.config.file=logging.properties swift.application.swiftlinks.cs.SwiftLinksBenchmarkClient"
 
     static int initDB( String client, String server, String config, String heap = "512m") {
         println "CLIENT: " + client + " SERVER: " + server + " CONFIG: " + config
